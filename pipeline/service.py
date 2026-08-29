@@ -1,7 +1,8 @@
 """Cloud Run service. Accepts an audit request, runs it, persists the result.
 
 Endpoints:
-    GET  /healthz          liveness, no dependencies touched
+    GET  /health           liveness, no dependencies touched
+    GET  /healthz          same; intercepted by Google Frontend on .run.app
     GET  /readyz           readiness: axe vendored, Chromium launchable
     POST /audit            run an audit synchronously
     POST /pubsub           Pub/Sub push subscription entrypoint
@@ -51,8 +52,18 @@ class AuditRequest(BaseModel):
         return value
 
 
+@app.get("/health")
 @app.get("/healthz")
-async def healthz() -> dict[str, str]:
+async def health() -> dict[str, str]:
+    """Liveness. Touches no dependencies.
+
+    Served on both paths because Google Frontend intercepts `/healthz` on
+    `.run.app` domains and answers it with its own 404 before the request
+    reaches the container — confirmed by the absence of an
+    `x-cloud-trace-context` header on that path while every other route,
+    including unknown ones, carries it. `/health` is the one to use against a
+    deployed service; `/healthz` still works locally and behind a proxy.
+    """
     return {"status": "ok"}
 
 

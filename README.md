@@ -7,6 +7,15 @@ patched DOM.
 
 Built for the Google Cloud **All Things Agentic Hackathon** — Taskmaster track.
 
+**Live pipeline:** https://a11ysentinel-pipeline-708226575684.us-central1.run.app
+(Cloud Run, `us-central1`, project `a11ysentinel`)
+
+```bash
+curl -X POST https://a11ysentinel-pipeline-708226575684.us-central1.run.app/audit \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://www.w3.org/WAI/demos/bad/before/home.html"}'
+```
+
 ## What it does, precisely
 
 A11ySentinel **finds** violations, **prioritises** them by user impact,
@@ -126,6 +135,10 @@ Then:
 ```bash
 curl https://YOUR-SERVICE.run.app/readyz
 ```
+
+Use `/health` rather than `/healthz` for liveness against a deployed
+service. Google Frontend intercepts `/healthz` on `.run.app` domains and
+answers with its own 404 before the request reaches the container.
 
 `/readyz` launches Chromium and checks axe is vendored — a container that
 starts but cannot run the rule engine would otherwise accept traffic and fail

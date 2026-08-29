@@ -56,6 +56,7 @@ echo
 echo "==> deployed: ${URL}"
 echo
 echo "    check readiness:"
+echo "      curl ${URL}/health"
 echo "      curl ${URL}/readyz"
 echo
 echo "    run an audit:"
