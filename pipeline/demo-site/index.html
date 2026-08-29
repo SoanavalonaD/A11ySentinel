@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<!--
+  Marché Antsahabe — a fictional grocer, invented for this project.
+
+  This page is deliberately inaccessible. It is the demo target: a domain we
+  control, so the video never puts a real company's failures on camera.
+  Outreach guard 3.
+
+  Seeded with violations across the ten axe rules the pipeline targets, in
+  roughly the proportions a real small-business site shows them. Every fault
+  here is one we have actually seen in the wild — filenames as alt text, icon
+  buttons with no name, a placeholder standing in for a label, "click here"
+  links, a heading level skipped for visual size, meaning carried by colour
+  alone.
+
+  Deliberately NOT missing: lang, which is set correctly below, so the demo
+  shows the pipeline distinguishing what is broken from what is not.
+
+  Server-rendered, no JavaScript. Every finding is anchored to markup that
+  exists on load, which is what keeps the demo reproducible take after take.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Marché Antsahabe — fruits et légumes frais</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --ink:#1c1a17; --paper:#fbf7f0; --leaf:#3f6b3a; --clay:#b0553a; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink);
+           font:16px/1.6 Georgia,"Times New Roman",serif; }
+    .wrap { max-width:1000px; margin:0 auto; padding:0 20px; }
+    header { background:var(--leaf); color:#fff; padding:18px 0; }
+    header .wrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+    .brand { font-size:26px; font-weight:bold; letter-spacing:.5px; }
+    nav ul { list-style:none; display:flex; gap:18px; margin:0; padding:0; }
+    nav a { color:#dfeada; text-decoration:none; }
+    .hero { padding:36px 0; border-bottom:1px solid #e3dccf; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+            gap:20px; padding:28px 0; }
+    .card { background:#fff; border:1px solid #e3dccf; padding:16px; }
+    .price { font-size:20px; font-weight:bold; }
+    /* Seeded: 2.9:1 against #fff. Fails 1.4.3 on real body text. */
+    .muted { color:#9a9a92; }
+    .stock-in { color:#2f8f2f; font-weight:bold; }
+    .stock-out { color:#c02b2b; font-weight:bold; }
+    .btn { background:var(--clay); color:#fff; border:0; padding:10px 16px;
+           font:inherit; cursor:pointer; }
+    /* Seeded: 2.3:1. Fails 1.4.3 on a control. */
+    .btn-secondary { background:#e8e2d6; color:#a49c8c; border:0; padding:10px 16px;
+                     font:inherit; cursor:pointer; }
+    footer { background:#efe8dc; margin-top:40px; padding:24px 0; }
+    /* Seeded: 2.6:1. Fails 1.4.3 on legal text. */
+    .legal { color:#a6a096; font-size:14px; }
+    table { border-collapse:collapse; width:100%; }
+    th, td { border:1px solid #e3dccf; padding:8px 10px; text-align:left; }
+    .icon-row { display:flex; gap:10px; align-items:center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <!-- image-alt: logo with no alt attribute -->
+    <img src="logo.png" width="40" height="40">
+    <span class="brand">Marché Antsahabe</span>
+    <nav>
+      <ul>
+        <li><a href="index.html">Accueil</a></li>
+        <li><a href="produits.html">Produits</a></li>
+        <li><a href="livraison.html">Livraison</a></li>
+        <!-- link-name: the link's only content is an image with no alt -->
+        <li><a href="panier.html"><img src="cart-icon.png" width="20" height="20"></a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Fruits et légumes de saison, livrés le jour même</h1>
+    <!-- image-alt: filename as the only description -->
+    <img src="hero-market-stall-final-v3.jpg" width="640" height="240">
+    <!-- color-contrast: 2.9:1 body text -->
+    <p class="muted">
+      Nous travaillons avec douze producteurs des hautes terres. Commandez
+      avant 10h pour une livraison dans l'après-midi.
+    </p>
+
+    <form action="/recherche" method="get">
+      <!-- label: placeholder used instead of a label -->
+      <input type="text" name="q" placeholder="Rechercher un produit">
+      <!-- button-name: icon-only button with no accessible name -->
+      <button type="submit" class="btn"><span aria-hidden="true">&#128269;</span></button>
+    </form>
+  </section>
+
+  <!-- heading-order: h1 jumps straight to h4, chosen for its smaller size -->
+  <h4>Nos produits cette semaine</h4>
+
+  <div class="grid">
+
+    <article class="card">
+      <!-- image-alt: decorative separator, should be alt="" -->
+      <img src="divider.gif" width="100%" height="4">
+      <h3>Tomates de Betafo</h3>
+      <p class="price">4 500 Ar / kg</p>
+      <!-- color-only-meaning: stock state carried by colour alone -->
+      <p class="stock-in">&#9679;</p>
+      <button class="btn">Ajouter</button>
+    </article>
+
+    <article class="card">
+      <img src="divider.gif" width="100%" height="4">
+      <h3>Avocats</h3>
+      <p class="price">7 000 Ar / kg</p>
+      <p class="stock-out">&#9679;</p>
+      <!-- color-contrast: 2.3:1 on an interactive control -->
+      <button class="btn-secondary">Prévenez-moi</button>
+    </article>
+
+    <article class="card">
+      <img src="divider.gif" width="100%" height="4">
+      <h3>Haricots verts</h3>
+      <p class="price">3 200 Ar / kg</p>
+      <p class="stock-in">&#9679;</p>
+      <button class="btn">Ajouter</button>
+    </article>
+
+    <article class="card">
+      <img src="divider.gif" width="100%" height="4">
+      <h3>Mangues</h3>
+      <p class="price">5 800 Ar / kg</p>
+      <p class="stock-in">&#9679;</p>
+      <button class="btn">Ajouter</button>
+    </article>
+
+  </div>
+
+  <h4>Points de retrait</h4>
+  <table>
+    <tr>
+      <th>Quartier</th>
+      <th>Adresse</th>
+      <th>Horaires</th>
+    </tr>
+    <tr>
+      <td>Antsahabe</td>
+      <td>Lot II B 14</td>
+      <td>07h &ndash; 18h</td>
+    </tr>
+    <tr>
+      <td>Analakely</td>
+      <td>Avenue de l'Indépendance</td>
+      <td>08h &ndash; 17h</td>
+    </tr>
+  </table>
+
+  <h4>Nous contacter</h4>
+  <form action="/contact" method="post">
+    <p>
+      <label for="nom">Votre nom</label><br>
+      <input type="text" id="nom" name="nom">
+    </p>
+    <p>
+      <!--
+        label: no <label>, no aria-label, and deliberately no placeholder
+        either. axe accepts a placeholder as a weak accessible name, so a
+        placeholder-only field does not trip the rule — which is itself worth
+        knowing, since placeholder-as-label is the most common real-world
+        version of this mistake and a rule engine will not catch it. That case
+        is what the VisualAuditor is for.
+      -->
+      <span>Adresse e-mail</span><br>
+      <input type="email" name="email">
+    </p>
+    <p>
+      <label for="message">Message</label><br>
+      <textarea id="message" name="message" rows="4"></textarea>
+    </p>
+    <!-- link-name: "cliquez ici" carries no destination information -->
+    <p class="muted">
+      Consultez nos conditions de livraison, <a href="livraison.html">cliquez ici</a>.
+    </p>
+    <button type="submit" class="btn">Envoyer</button>
+  </form>
+
+  <!-- frame-title: embedded frame with no title -->
+  <h4>Nous trouver</h4>
+  <iframe src="carte.html" width="100%" height="240"></iframe>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="icon-row">
+      <!-- link-name x3: social links are images with no alt -->
+      <a href="https://example.com/fb"><img src="icon-fb.png" width="24" height="24"></a>
+      <a href="https://example.com/ig"><img src="icon-ig.png" width="24" height="24"></a>
+      <a href="https://example.com/wa"><img src="icon-wa.png" width="24" height="24"></a>
+    </div>
+    <!-- color-contrast: 2.6:1 legal text -->
+    <p class="legal">
+      &copy; 2026 Marché Antsahabe. Entreprise fictive créée pour la
+      démonstration d'A11ySentinel. Aucune commande réelle n'est traitée.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 # A11ySentinel — Data Contract
 
-**Status:** draft 2, awaiting Partner sign-off. Draft 2 adds `status` to Finding — see "Why `status` was added" below.
+**Status:** draft 3, awaiting Partner sign-off. Draft 2 added `status` to Finding; draft 3 added `announcedBefore` / `announcedAfter` — see the section on those below.
 **Authoritative.** If this file and any other document disagree, this file wins.
 
 The pipeline **writes**. The web layer **reads**. Neither side waits for the
@@ -86,7 +86,9 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
   "status": "verified",
   "verified": true,
   "triageRank": 1,
-  "screenshotRef": "gs://a11ysentinel-artifacts/aud_abc123/contact.png"
+  "screenshotRef": "gs://a11ysentinel-artifacts/aud_abc123/contact.png",
+  "announcedBefore": "button: (nothing — announced only as its type)",
+  "announcedAfter": "button: \"Send message\""
 }
 ```
 
@@ -114,6 +116,8 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
 | `verified` | bool | Set by the Verifier only, and only about a patch. Equivalent to `status == "verified"`; kept because the plan's original contract named it. |
 | `triageRank` | int or null | 1 = highest priority. Null before triage. |
 | `screenshotRef` | string or null | `gs://` URI. |
+| `announcedBefore` | string or null | What assistive technology announced for this element before the fix. |
+| `announcedAfter` | string or null | What it announces after. Null on both when the element carries no announced role, or when no patch was applied. |
 
 ---
 
@@ -138,6 +142,34 @@ exists.
 draft that failed or has not yet been checked. This is hard rule 3 restated
 precisely: the rule protects against showing an unverified **fix**, not
 against reporting a detected **violation**.
+
+## `announcedBefore` / `announcedAfter` — the visible before/after
+
+Almost every fix this tool makes is **invisible on screen**. `alt`,
+`aria-label` and `lang` change no pixels, so a side-by-side screenshot of a
+patched page shows two identical images. Presenting that as the result would be
+unconvincing, and arguably misleading.
+
+The change is real; it is just not in the rendering. It is in the accessibility
+tree — the structure a screen reader walks. These two fields carry it:
+
+```json
+"announcedBefore": "link: (nothing — announced only as its type)",
+"announcedAfter":  "link: \"Home\""
+```
+
+Both strings are **measured, not predicted.** They are read from Chromium's own
+accessibility tree via CDP, computed by the same algorithm the browser uses for
+a real screen reader, against the actual patched DOM.
+
+**Render these as the headline before/after.** They are the honest visual
+representation of what the tool did, and they carry the point better than a
+code diff does for anyone who does not read HTML.
+
+Null on both when the element carries no announced role — `<html>` has none, so
+an `html-has-lang` fix has no announcement to show. Null means "we could not
+read it", never "nothing changed". Do not render a null as an empty string, and
+do not fill it in.
 
 ## Invariants the web layer can rely on
 

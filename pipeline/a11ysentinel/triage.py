@@ -34,7 +34,7 @@ VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
 
 # Ranking needs the whole set, but the whole set can be 79 items. Beyond this
 # the prompt gets long and the ordering gets no better.
-MAX_FINDINGS_PER_CALL = 40
+MAX_FINDINGS_PER_CALL = 80
 
 
 @dataclass

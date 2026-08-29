@@ -159,6 +159,7 @@ async def remediate_one(
     client=None,
     model: str = DEFAULT_MODEL,
     context: str | None = None,
+    language: str | None = None,
     min_confidence: float | None = None,
 ) -> PatchOutcome:
     """Draft a patch for one finding.
@@ -179,6 +180,7 @@ async def remediate_one(
         user_impact=finding.userImpact,
         framework=finding.framework.value,
         current_code=finding.currentCode,
+        language=language,
         context=context,
     )
 
@@ -238,6 +240,7 @@ async def remediate_all(
     model: str = DEFAULT_MODEL,
     concurrency: int = DEFAULT_CONCURRENCY,
     context_by_id: dict[str, str] | None = None,
+    language: str | None = None,
     limit: int | None = None,
 ) -> RemediationReport:
     """Agent 5 — fan out one Remediator per finding, with a concurrency bound.
@@ -267,6 +270,7 @@ async def remediate_all(
                 client=client,
                 model=model,
                 context=context_by_id.get(f.findingId),
+                language=language,
             )
 
     outcomes = list(await asyncio.gather(*(run(f) for f in targets)))

@@ -19,6 +19,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY a11ysentinel/ ./a11ysentinel/
 COPY vendor/ ./vendor/
+# The demo target, served at /demo. Outreach guard 3 requires the video to run
+# against a domain we control, and shipping it in the image means the demo has
+# no separate host that can be down on Monday.
+COPY demo-site/ ./demo-site/
 COPY service.py audit_cli.py ./
 
 # Run as the non-root user the Playwright image already provides.

@@ -1,6 +1,5 @@
 {
-  "_comment": "Mock data for the web layer. Shape matches contracts/schema.md exactly. The 'audit' object is the audits/{auditId} document; 'findings' is the audits/{auditId}/findings subcollection flattened into an array. Four findings covering every UI state you need to build: f_001 a straightforward verified fix, f_002 a verified fix that still requires a human (render as 'needs a human', never as done), f_003 a visual finding axe cannot catch, f_004 a detected violation with no fix drafted yet (patchedCode is null — render as a finding with no diff). Draft 2 added the 'status' field; branch your UI on it rather than on 'verified'.",
-
+  "_comment": "Mock data for the web layer. Shape matches contracts/schema.md exactly. The 'audit' object is the audits/{auditId} document; 'findings' is the audits/{auditId}/findings subcollection flattened into an array. Four findings covering every UI state you need to build: f_001 a straightforward verified fix, f_002 a verified fix that still requires a human (render as 'needs a human', never as done), f_003 a visual finding axe cannot catch, f_004 a detected violation with no fix drafted yet (patchedCode is null — render as a finding with no diff). Draft 2 added 'status'; branch your UI on it rather than on 'verified'. Draft 3 added announcedBefore/announcedAfter — what a screen reader says before and after the fix. Render those as the headline before/after: most fixes change no pixels, so this is where the change is actually visible. Null means the element carries no announced role (f_003, f_004), never that nothing changed.",
   "audit": {
     "auditId": "aud_7f3c91",
     "targetUrl": "https://demo-target.a11ysentinel.dev",
@@ -15,7 +14,6 @@
     "emailStatus": "draft",
     "error": null
   },
-
   "findings": [
     {
       "findingId": "f_001",
@@ -39,7 +37,9 @@
       "status": "verified",
       "verified": true,
       "triageRank": 1,
-      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/contact.png"
+      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/contact.png",
+      "announcedBefore": "button: (nothing — announced only as its type)",
+      "announcedAfter": "button: \"Send message\""
     },
     {
       "findingId": "f_002",
@@ -63,7 +63,9 @@
       "status": "verified",
       "verified": true,
       "triageRank": 2,
-      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/about.png"
+      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/about.png",
+      "announcedBefore": "image: (nothing — announced only as its type)",
+      "announcedAfter": "image: \"TODO: describe this image\""
     },
     {
       "findingId": "f_003",
@@ -87,7 +89,9 @@
       "status": "verified",
       "verified": true,
       "triageRank": 3,
-      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/pricing.png"
+      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/pricing.png",
+      "announcedBefore": null,
+      "announcedAfter": null
     },
     {
       "findingId": "f_004",
@@ -111,7 +115,9 @@
       "status": "detected",
       "verified": false,
       "triageRank": 4,
-      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/home.png"
+      "screenshotRef": "gs://a11ysentinel-artifacts/aud_7f3c91/home.png",
+      "announcedBefore": null,
+      "announcedAfter": null
     }
   ]
 }

@@ -29,6 +29,11 @@ class PageCapture:
     html: str
     title: str
     framework: Framework
+    # BCP 47 tag from <html lang>, or None when the page does not declare
+    # one. Drives the language any user-facing text we generate is written
+    # in — English alt text on a French page is a defect, and this project
+    # targets RGAA, which is French.
+    language: str | None = None
     screenshot_png: bytes | None = None
 
 
@@ -85,6 +90,9 @@ async def capture_page(
 
         html = await page.content()
         title = await page.title()
+        language = await page.evaluate(
+            "() => document.documentElement.getAttribute('lang') || null"
+        )
         shot = await page.screenshot(full_page=True) if screenshot else None
 
         return PageCapture(
@@ -92,6 +100,7 @@ async def capture_page(
             html=html,
             title=title,
             framework=_detect_framework(html),
+            language=language,
             screenshot_png=shot,
         )
     finally:

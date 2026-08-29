@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 
 from playwright.async_api import Browser
 
-from . import rule_auditor
+from . import announce, rule_auditor
 from .models import Finding, FindingStatus
 
 
@@ -87,6 +87,14 @@ async def verify_patches(
 
         applied: list[Finding] = []
         rejected: list[tuple[Finding, str]] = []
+
+        # Read what each element announces before anything is touched. This is
+        # the only moment the original accessibility tree exists, so it has to
+        # happen before the first patch is applied.
+        for finding in drafted:
+            heard = await announce.announcement_for(context, page, finding.selector)
+            if heard is not None:
+                finding.announcedBefore = heard.render()
 
         for finding in drafted:
             # Applying a patch must never be able to fail the audit. A single
@@ -161,6 +169,14 @@ async def verify_patches(
                 continue
             # Only here, and only after both checks passed.
             finding.mark_verified()
+
+            # Read the same element again from the patched tree. Chromium
+            # computes this name the same way it would for a real screen
+            # reader, so this is what the element now announces — measured,
+            # not predicted.
+            heard = await announce.announcement_for(context, page, finding.selector)
+            if heard is not None:
+                finding.announcedAfter = heard.render()
 
         verified = [f for f in applied if f.status is FindingStatus.VERIFIED]
 

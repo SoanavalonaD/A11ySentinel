@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!--
+  Second demo page. Fewer violations than index.html on purpose: the prospect
+  picker must have a real choice to make, and "the agent scanned three pages
+  and chose the worst one" is only true if they differ.
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Livraison — Marché Antsahabe</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; background:#fbf7f0; color:#1c1a17;
+           font:16px/1.6 Georgia,"Times New Roman",serif; }
+    .wrap { max-width:900px; margin:0 auto; padding:24px 20px; }
+    header { background:#3f6b3a; color:#fff; padding:16px 0; }
+    table { border-collapse:collapse; width:100%; margin-top:16px; }
+    th,td { border:1px solid #e3dccf; padding:8px 10px; text-align:left; }
+    .faint { color:#a6a096; }
+  </style>
+</head>
+<body>
+<header><div class="wrap"><strong>Marché Antsahabe</strong></div></header>
+<main class="wrap">
+  <h1>Zones et horaires de livraison</h1>
+  <p>Nous livrons dans six quartiers d'Antananarivo, du lundi au samedi.</p>
+
+  <!-- image-alt: filename as description -->
+  <img src="map-zones-v2.png" width="600" height="200">
+
+  <table>
+    <tr><th>Zone</th><th>Créneau</th><th>Frais</th></tr>
+    <tr><td>Antsahabe</td><td>13h &ndash; 16h</td><td>2 000 Ar</td></tr>
+    <tr><td>Analakely</td><td>14h &ndash; 17h</td><td>3 000 Ar</td></tr>
+    <tr><td>Ivandry</td><td>15h &ndash; 18h</td><td>4 500 Ar</td></tr>
+  </table>
+
+  <!-- color-contrast: 2.6:1 -->
+  <p class="faint">Les frais sont offerts au-delà de 50 000 Ar de commande.</p>
+
+  <!-- link-name: no readable text -->
+  <p>Retour à l'accueil : <a href="index.html"><img src="arrow.png" width="16" height="16"></a></p>
+</main>
+</body>
+</html>

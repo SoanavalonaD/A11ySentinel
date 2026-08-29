@@ -17,9 +17,11 @@ import base64
 import binascii
 import json
 import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
 
 from a11ysentinel import capture as capture_mod
@@ -39,6 +41,19 @@ app = FastAPI(
 )
 
 PERSIST = os.getenv("PERSIST_TO_FIRESTORE", "true").lower() == "true"
+
+# The demo target, served from our own service.
+#
+# Outreach guard 3 requires the video to run against a domain we control.
+# Hosting the fixture site here rather than on separate infrastructure
+# means the demo has no extra moving part to fail on Monday morning, and
+# the prospect pool can point at a real https URL that is unambiguously
+# ours. The site is a fictional grocer; no real business is depicted.
+_DEMO_DIR = Path(__file__).parent / "demo-site"
+if _DEMO_DIR.is_dir():
+    app.mount(
+        "/demo", StaticFiles(directory=str(_DEMO_DIR), html=True), name="demo"
+    )
 
 
 class AuditRequest(BaseModel):

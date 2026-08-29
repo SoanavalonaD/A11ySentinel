@@ -125,7 +125,9 @@ async def run_audit(
                 from . import remediator
 
                 report = await remediator.remediate_all(
-                    findings, limit=remediation_limit
+                    findings,
+                    limit=remediation_limit,
+                    language=page_capture.language,
                 )
                 result.discards.extend(
                     f"{o.finding.findingId} ({o.finding.category}): {o.reason}"

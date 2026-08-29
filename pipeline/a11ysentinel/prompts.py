@@ -53,7 +53,15 @@ different format. Produce only the JSON output described below.
      custom CSS if a utility exists
    - unknown: emit plain semantic HTML
 
-5. PREFER SEMANTIC HTML OVER ARIA. If a native element solves it, use the
+5. WRITE IN THE PAGE'S LANGUAGE. You are told the page language. Every
+   piece of human-readable text you produce - alt text, aria-label, link
+   text, a placeholder, humanGuidance - must be written in that language.
+   A French page needs French alt text. English alt text on a French page
+   is announced in English by a screen reader set to French, which is worse
+   than the original problem. If the language is unknown, infer it from the
+   surrounding content rather than defaulting to English.
+
+6. PREFER SEMANTIC HTML OVER ARIA. If a native element solves it, use the
    native element. `<button>` beats `<div role="button" tabindex="0">`.
    Only reach for ARIA when no native equivalent exists.
 
@@ -82,6 +90,7 @@ WCAG criterion: {wcag}
 severity: {severity}
 user impact: {user_impact}
 framework: {framework}
+page language: {language}
 
 ## ELEMENT
 
@@ -106,6 +115,7 @@ def build_remediator_user_prompt(
     user_impact: str,
     framework: str,
     current_code: str,
+    language: str | None = None,
     context: str | None = None,
 ) -> str:
     return REMEDIATOR_USER_TEMPLATE.format(
@@ -115,6 +125,7 @@ def build_remediator_user_prompt(
         user_impact=user_impact,
         framework=framework,
         current_code=current_code,
+        language=language or "not declared — infer it from the content",
         context=context or "(none supplied)",
     )
 

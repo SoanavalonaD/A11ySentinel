@@ -115,6 +115,13 @@ class Finding(BaseModel):
     verified: bool = False
     triageRank: int | None = None
     screenshotRef: str | None = None
+    # What assistive technology announces for this element, read from the
+    # browser's own accessibility tree before and after the patch. Almost every
+    # fix we make is invisible on screen, so this is where the change is
+    # actually observable. Null when the element cannot be read, or when no
+    # patch was applied — never a guess.
+    announcedBefore: str | None = None
+    announcedAfter: str | None = None
 
     @model_validator(mode="after")
     def _human_guidance_pairs_with_flag(self) -> Finding:
