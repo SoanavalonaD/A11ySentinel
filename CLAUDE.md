@@ -59,7 +59,7 @@ Gemini. Never commit secrets; use Secret Manager or `.env` (gitignored).
 
 | Layer | Choice |
 |---|---|
-| Model | Gemini 2.5 Flash via Vertex AI |
+| Model | Gemini 3.7 Flash via Vertex AI (`global` endpoint) |
 | Agent framework | Google ADK (Python) |
 | Browser | Playwright (Chromium) |
 | Rule engine | axe-core, injected via `page.evaluate()` |

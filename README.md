@@ -49,7 +49,7 @@ reproducible rather than asserted.
 
 | Layer | Choice |
 |---|---|
-| Model | Gemini 2.5 Flash via Vertex AI |
+| Model | Gemini 3.7 Flash via Vertex AI (`global` endpoint) |
 | Agent framework | Google ADK (Python) |
 | Browser | Playwright (Chromium) |
 | Rule engine | axe-core 4.10.2, vendored and pinned by SHA-256 |
@@ -160,7 +160,7 @@ Secret Manager.
 |---|---|
 | `GOOGLE_CLOUD_PROJECT` | Project id |
 | `GOOGLE_CLOUD_LOCATION` | Region, e.g. `us-central1` |
-| `GEMINI_MODEL` | Default `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Default `gemini-3.7-flash` |
 | `ARTIFACTS_BUCKET` | Cloud Storage bucket for screenshots |
 | `MAX_PAGES_PER_AUDIT` | Cost control. Playwright is the cost driver |
 | `MIN_CONFIDENCE` | Findings below this are discarded before write |

@@ -27,7 +27,13 @@ from dataclasses import dataclass, field
 from . import prompts
 from .models import DEFAULT_MIN_CONFIDENCE, Finding, Framework
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
+
+# The Gemini 3.x family is served from the `global` endpoint, not from
+# regional ones. Verified directly: gemini-3.5/3.6/3.7-flash all return
+# NOT_FOUND in us-central1 and answer normally on global. This is separate
+# from GOOGLE_CLOUD_LOCATION, which is where Firestore and Cloud Run live.
+VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
 
 # Each in-flight request is a Chromium-free but quota-consuming call. Bounded
 # so a 79-finding page cannot open 79 simultaneous connections.
@@ -70,7 +76,7 @@ def _client():
     from google import genai
 
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+    location = VERTEX_LOCATION
     if not project:
         raise RuntimeError(
             "GOOGLE_CLOUD_PROJECT is not set — the Remediator needs Vertex AI. "

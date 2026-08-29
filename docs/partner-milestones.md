@@ -98,7 +98,7 @@ carries a visible opt-out line.
 **Required submission artifact.** Judges look for it.
 
 ### B6 — `VisualAuditor` (agent 3) — *if you're taking it*
-Python, `LlmAgent`, Gemini 2.5 Flash. Input: screenshot + trimmed DOM + the
+Python, `LlmAgent`, Gemini 3.7 Flash. Input: screenshot + trimmed DOM + the
 axe findings. Output: only what axe **cannot** catch.
 The prompt is already written in `docs/A11ySentinel-Prompts.md`.
 
