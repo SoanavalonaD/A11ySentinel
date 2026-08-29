@@ -146,7 +146,7 @@ The prompt is already written in `docs/A11ySentinel-Prompts.md`.
    **not** persist. State only survives if it travels in an Event's
    `actions.state_delta`. Direct mutation appears to work, because the next
    agent shares the live dict, then vanishes on read-back. See
-   `pipeline/adk_example.py` for a runnable version.
+   `pipeline/adk_apps/a11ysentinel/agent.py` for a runnable version.
 
 There is also a case waiting for you in the demo site: a search field using
 `placeholder` as its label. axe accepts a placeholder as a weak accessible

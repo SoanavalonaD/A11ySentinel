@@ -117,7 +117,30 @@ Run the lifecycle guards:
 
 ```bash
 python -m tests.test_lifecycle
+python -m tests.test_remediator_validation
 ```
+
+### The agent graph in ADK's Dev UI
+
+Agents 1, 2 and 7 are ADK constructs. To watch the whole pipeline run,
+stage by stage, with live events and inspectable session state:
+
+```bash
+adk web adk_apps --port 8777
+```
+
+Open `http://127.0.0.1:8777/dev-ui/`, choose `a11ysentinel`, and send a URL
+as the message (or send anything to use the default demo target). Headless
+equivalent:
+
+```bash
+adk run adk_apps/a11ysentinel
+```
+
+Agents 4, 5 and 6 run inside those stages rather than as separate ADK
+constructs — `remediate_all` already handles bounded concurrency,
+per-response validation and rejection reporting, and re-expressing that as
+a `ParallelAgent` would risk working code to gain a class name.
 
 ## Deploy to Cloud Run
 
