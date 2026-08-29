@@ -9,6 +9,40 @@ slows near deadlines.
 
 ---
 
+## Read this first — the contract moved three times
+
+Sorry. All three are on `main` now. Pull before you build anything else.
+
+| Draft | Change | Breaking? |
+|---|---|---|
+| 2 | `status` added to Finding | additive |
+| 3 | `announcedBefore` / `announcedAfter` added | additive |
+| 4 | **`rgaaCriterion` → `regionalFramework` + `regionalCriterion`** | **yes** |
+
+**Draft 4 is the one that breaks you.** If you bound a table column to
+`rgaaCriterion`, it is now two fields. We moved to WCAG-first framing — we
+measure WCAG 2.1 AA for every site globally, and only *name* a regional
+framework as context. A field named after one country did not survive that.
+
+**Draft 3 is the one that helps you most.** `announcedBefore` /
+`announcedAfter` carry what a screen reader actually says:
+
+```
+link:  (nothing announced)   →   link:  "Panier"
+button:(nothing announced)   →   button:"Rechercher"
+```
+
+**Render that as the headline before/after.** Almost every fix we make changes
+no pixels — `alt`, `aria-label` and `lang` are invisible — so a side-by-side
+screenshot of a fixed page shows two identical images. This is where the change
+is actually visible, and it carries the point better than a code diff for
+anyone who does not read HTML.
+
+It also means your proxy is no longer the only visual payoff. If B2 slips,
+the demo still works.
+
+---
+
 ## What the pipeline already gives you
 
 Stage 1 is live. You are not waiting on me for anything below.
@@ -20,7 +54,8 @@ Stage 1 is live. You are not waiting on me for anything below.
 | **Firestore** | `audits/{auditId}` and `audits/{auditId}/findings/{findingId}` |
 | **Storage** | `gs://a11ysentinel-artifacts` (screenshots) |
 | **Fixture** | `contracts/fixtures/audit-sample.json` — 4 findings, every UI state |
-| **Contract** | `contracts/schema.md` — draft 2, authoritative |
+| **Contract** | `contracts/schema.md` — **draft 4**, authoritative |
+| **Demo target** | `.../demo/index.html` — our own seeded site |
 
 Try it:
 
@@ -102,6 +137,23 @@ Python, `LlmAgent`, Gemini 3.7 Flash. Input: screenshot + trimmed DOM + the
 axe findings. Output: only what axe **cannot** catch.
 The prompt is already written in `docs/A11ySentinel-Prompts.md`.
 
+**Two things that will otherwise cost you an hour:**
+
+1. Use `location="global"` in your genai client. The Gemini 3.x family is
+   not served from regional endpoints — a 3.x model id returns NOT_FOUND
+   against `us-central1`, which reads as "this model does not exist".
+2. If you build it as an ADK agent: assigning to `ctx.session.state` does
+   **not** persist. State only survives if it travels in an Event's
+   `actions.state_delta`. Direct mutation appears to work, because the next
+   agent shares the live dict, then vanishes on read-back. See
+   `pipeline/adk_example.py` for a runnable version.
+
+There is also a case waiting for you in the demo site: a search field using
+`placeholder` as its label. axe accepts a placeholder as a weak accessible
+name, so the rule engine does **not** flag it — and placeholder-as-label is
+one of the most common real mistakes. That is exactly the gap this agent
+exists to fill, and it makes a good demo beat.
+
 **The critical part is in code, not the prompt:** validate every returned
 `selector` against the real DOM and **discard any finding matching zero
 elements**. Also discard anything with `confidence < 0.7`. Gemini will
@@ -138,12 +190,35 @@ Draft from the project plan; I review.
 2. **Who writes `proxyUrl`?** I've assumed you do, once the proxy can serve.
 3. **`rgaaCriterion` nullable?** Currently nullable. If a null breaks a table
    column, I can emit `"n/a"`.
-4. **Are you taking `VisualAuditor`?** Yes or no — it changes what I build.
+4. **Are you taking `VisualAuditor`?** Yes or no. It is the only agent left
+   unbuilt, so this is now the single open question that changes what
+   happens next.
 5. **Demo target site.** See the note below.
 
 ---
 
-## Demo target — needs settling
+## Demo target — settled
+
+Lewis built one. `pipeline/demo-site/` is **Marché Antsahabe**, a fictional
+grocer seeded with violations across six of the targeted rules, served from our
+own Cloud Run service at `/demo` and shipped inside the image so there is no
+separate host to fail on Monday.
+
+```
+https://a11ysentinel-pipeline-708226575684.us-central1.run.app/demo/index.html
+```
+
+That satisfies outreach guard 3 — the video runs against a domain we control,
+and no real business is depicted. **Autonomous selection still happens:** the
+prospect pool points at our own pages, which carry different violation counts,
+so the agent genuinely chooses. The autonomy is in the picking; the safety is
+in the pool.
+
+Measured on it: **21 violations → 4**, with 17 verified fixes and 3 flagged for
+human input. The remaining four are colour-contrast, which we deliberately do
+not auto-patch because it lives in CSS — an easy line to deliver on camera.
+
+## Older note on the demo target
 
 The plan is currently "a site picked randomly by the agent". Random
 *selection* is a legitimate product feature and it stays. But **the video must
@@ -198,9 +273,9 @@ If this doesn't work Sunday night, Monday is triage instead of building.
 | Stage | Agents | Demoable outcome | State |
 |---|---|---|---|
 | 1 | 1, 2, 7 | Real before/after counts, no Gemini needed | **Done, deployed** |
-| 2 | + 6 | Real code patches, proxy works | Next |
-| 3 | + 3 | Multimodal findings axe cannot catch | Sunday |
-| 4 | + 4, 5 | Prioritised output, true parallelism | Sunday |
+| 2 | + 5, 6 | Real code patches | **Done, deployed** |
+| 4 | + 4 | Prioritised output, plain-language impact | **Done, deployed** |
+| 3 | + 3 | Multimodal findings axe cannot catch | **Yours, if you take it** |
 
 Agents 4 and 5 can ship as a plain sort and a for-loop. If time runs out, cut
 from the bottom of that table.
