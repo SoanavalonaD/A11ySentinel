@@ -1,6 +1,6 @@
 # A11ySentinel — Data Contract
 
-**Status:** draft 1, awaiting Partner sign-off.
+**Status:** draft 2, awaiting Partner sign-off. Draft 2 adds `status` to Finding — see "Why `status` was added" below.
 **Authoritative.** If this file and any other document disagree, this file wins.
 
 The pipeline **writes**. The web layer **reads**. Neither side waits for the
@@ -83,6 +83,7 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
   "humanGuidance": null,
   "framework": "html",
   "confidence": 0.97,
+  "status": "verified",
   "verified": true,
   "triageRank": 1,
   "screenshotRef": "gs://a11ysentinel-artifacts/aud_abc123/contact.png"
@@ -109,11 +110,34 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
 | `humanGuidance` | string or null | Non-null **if and only if** `requiresHumanInput` is true. |
 | `framework` | enum | `react`, `html`, `unknown` |
 | `confidence` | float | 0.0 to 1.0. Findings below 0.7 are discarded before write. |
-| `verified` | bool | Set by the Verifier only. |
+| `status` | enum | `detected`, `patched`, `verified`. See the lifecycle below. **This is the field the UI should branch on.** |
+| `verified` | bool | Set by the Verifier only, and only about a patch. Equivalent to `status == "verified"`; kept because the plan's original contract named it. |
 | `triageRank` | int or null | 1 = highest priority. Null before triage. |
 | `screenshotRef` | string or null | `gs://` URI. |
 
 ---
+
+## Finding lifecycle — `status`
+
+A finding moves through three states. The distinction matters because
+"we found a real violation" and "we checked our fix for it" are different
+claims, and conflating them is how a tool ends up showing an unchecked fix as
+though it were done.
+
+| `status` | Means | `patchedCode` | `verified` | May the UI show it? |
+|---|---|---|---|---|
+| `detected` | A real violation, confirmed by axe or by a validated visual finding. No fix drafted yet. | `null` | `false` | **Yes** — as a finding. Never as a fix. |
+| `patched` | A fix was drafted but has not survived verification. | set | `false` | **No.** Transient, internal to the pipeline. |
+| `verified` | Fix applied to the DOM, axe re-run, original violation gone, nothing new introduced. | set | `true` | **Yes** — as a finding and as a fix. |
+
+`detected` is what Stage 1 produces: real violations, honestly counted, no
+fixes claimed. It is what makes the dashboard useful before the Remediator
+exists.
+
+**A `patched` finding must never be rendered or served by the proxy.** It is a
+draft that failed or has not yet been checked. This is hard rule 3 restated
+precisely: the rule protects against showing an unverified **fix**, not
+against reporting a detected **violation**.
 
 ## Invariants the web layer can rely on
 
@@ -121,8 +145,10 @@ These are enforced in the pipeline. Build against them.
 
 1. **Every `selector` matches at least one element** in the captured DOM.
    Unmatched selectors are discarded, never written.
-2. **`verified: false` findings are never written** to Firestore. If a finding
-   is present, its patch was applied and re-checked with axe.
+2. **A finding carrying `patchedCode` is only ever shown when
+   `status == "verified"`.** Findings at `detected` are written and displayed
+   as violations with no fix attached. Findings at `patched` are never shown
+   and never served by the proxy.
 3. **`requiresHumanInput: true` implies `humanGuidance` is non-null** and a
    placeholder sits in `patchedCode`. The UI must surface this as *needs a
    human*, never present it as a finished fix.
@@ -155,6 +181,24 @@ invented:
 | `confidence` | Both prompts return it. Drives the 0.7 discard threshold. |
 | `triageRank` | TriageAgent output needs somewhere to land. |
 | `completedAt`, `error` | The dashboard needs to show duration, and to explain a failure. |
+| `status` | **Added draft 2 — please read.** See below. |
+
+### Why `status` was added (draft 2)
+
+Draft 1 said `verified: false` findings are never written. Running Stage 1
+against a real page showed that this cannot be right: with no Remediator yet,
+every finding is `verified: false`, so nothing could be written at all and
+your dashboard would be empty until the Remediator lands.
+
+The word `verified` was doing two jobs — "this violation is real" and "this
+fix was checked". `status` separates them. Hard rule 3 is unchanged and
+fully intact: **an unverified fix is still never shown or served.** What
+changed is that a detected violation with no fix attached can now be
+reported, which is exactly what Stage 1 produces.
+
+**What this means for your UI:** branch on `status`, not on `verified`.
+A `detected` finding renders as "we found this" with no diff. Only a
+`verified` finding renders a diff.
 
 **Open questions for you — answer these and I will fold them in:**
 
