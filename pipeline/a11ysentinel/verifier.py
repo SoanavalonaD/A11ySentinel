@@ -1,25 +1,76 @@
 """Agent 7 — Verifier. Deterministic, no model involved.
 
-Applies each drafted patch to the captured DOM, re-runs axe, and confirms two
-things: the original violation is gone, and no new violation appeared.
+Applies each drafted patch, re-runs axe, and confirms two things: the original
+violation is gone, and the patch introduced nothing new.
 
-Hard rule 3: nothing unverified reaches the proxy or the report. This module
-is the only thing that may set `verified = True`.
+Hard rule 3: nothing unverified reaches the proxy or the report. This module is
+the only thing that may set `verified = True`.
 
 The second check matters as much as the first. A patch that silences
 `button-name` by adding `aria-label` to a `<div>` while introducing an
 `aria-valid-attr-value` failure has not fixed anything; it has moved the
-problem. Counting only the original rule would let that through.
+problem.
+
+**Patches are judged one at a time.** An earlier version applied the whole set,
+re-ran axe once, and rejected everything if anything new appeared — collective
+punishment. On a live run that cost seventeen good fixes because one patch, a
+correct fix for `COLOUR_ONLY_MEANING`, added a text badge whose colour then
+failed contrast. The conservative direction was right; the granularity was not.
+
+So each candidate is evaluated against a DOM rebuilt from the original with
+only the already-accepted patches applied. Rebuilding rather than reverting
+avoids needing a stable handle on an element whose markup we just replaced,
+and it costs one axe run per candidate — a few seconds for a realistic patch
+set, in exchange for knowing *which* patch broke something.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from playwright.async_api import Browser
+from playwright.async_api import Browser, Page
 
 from . import announce, rule_auditor
 from .models import Finding, FindingStatus
+
+# Applying a patch must never be able to fail the audit. Every failure mode
+# inside the page is caught and returned as a string rather than thrown — an
+# earlier version let NoModificationAllowedError escape and discarded an
+# entire 81-violation run.
+_APPLY_JS = """([selector, replacement]) => {
+    let el;
+    try {
+        el = document.querySelector(selector);
+    } catch (e) {
+        return "bad-selector: " + e.message;
+    }
+    if (!el) return "no-match";
+
+    // <html>, <head> and <body> cannot be replaced via outerHTML — their
+    // parent is the Document, which throws NoModificationAllowedError.
+    // html-has-lang targets <html> exactly, so this is a common case.
+    const isRoot = el === document.documentElement
+        || el === document.head
+        || el === document.body;
+
+    try {
+        if (isRoot) {
+            const parsed = new DOMParser().parseFromString(replacement, "text/html");
+            const source = parsed.querySelector(el.tagName) || parsed.documentElement;
+            if (!source || !source.attributes) return "unparseable";
+            for (const attr of Array.from(source.attributes)) {
+                el.setAttribute(attr.name, attr.value);
+            }
+            return "attributes";
+        }
+        el.outerHTML = replacement;
+        return "replaced";
+    } catch (e) {
+        return "apply-failed: " + e.message;
+    }
+}"""
+
+_APPLIED_OK = ("replaced", "attributes")
 
 
 @dataclass
@@ -51,6 +102,17 @@ def _violation_keys(raw_violations: list[dict]) -> set[tuple[str, str]]:
     return keys
 
 
+async def _apply(page: Page, finding: Finding) -> str:
+    return await page.evaluate(_APPLY_JS, [finding.selector, finding.patchedCode])
+
+
+async def _rebuild(page: Page, html: str, accepted: list[Finding]) -> None:
+    """Reset to the original DOM and re-apply only what has been accepted."""
+    await page.set_content(html, wait_until="domcontentloaded")
+    for finding in accepted:
+        await _apply(page, finding)
+
+
 async def verify_patches(
     browser: Browser,
     *,
@@ -58,18 +120,17 @@ async def verify_patches(
     html: str,
     findings: list[Finding],
 ) -> VerificationResult:
-    """Apply every drafted patch to the DOM, re-run axe, and judge the result.
+    """Judge each drafted patch on its own, then report the combined result.
 
-    Findings with no `patchedCode` are passed through unverified — there is
-    nothing to check yet. That is the Stage 1 path: real counts, no patches,
-    so before and after are equal and we say so honestly rather than
-    manufacturing a delta.
+    Findings with no `patchedCode` pass through unverified — there is nothing
+    to check yet. That is the stage 1 path: real counts, no patches, so before
+    and after are equal and we say so rather than manufacturing a delta.
     """
     context = await browser.new_context(viewport={"width": 1440, "height": 900})
     try:
         page = await context.new_page()
-        # Load the captured HTML rather than re-fetching, so verification runs
-        # against exactly the DOM the findings were anchored to.
+        # Verify against the captured DOM rather than a fresh fetch, so the
+        # findings and the check are anchored to identical markup.
         await page.set_content(html, wait_until="domcontentloaded")
 
         before_raw = await rule_auditor.run_axe(page)
@@ -85,105 +146,71 @@ async def verify_patches(
                 rejected=[(f, "no patch drafted yet") for f in findings],
             )
 
-        applied: list[Finding] = []
-        rejected: list[tuple[Finding, str]] = []
-
         # Read what each element announces before anything is touched. This is
-        # the only moment the original accessibility tree exists, so it has to
-        # happen before the first patch is applied.
+        # the only moment the original accessibility tree exists.
         for finding in drafted:
             heard = await announce.announcement_for(context, page, finding.selector)
             if heard is not None:
                 finding.announcedBefore = heard.render()
 
+        accepted: list[Finding] = []
+        rejected: list[tuple[Finding, str]] = []
+
         for finding in drafted:
-            # Applying a patch must never be able to fail the audit. A single
-            # unpatchable element previously threw out of page.evaluate and
-            # discarded an entire 81-violation run, so every failure mode is
-            # caught in the page and returned as a string.
-            outcome = await page.evaluate(
-                """([selector, replacement]) => {
-                    let el;
-                    try {
-                        el = document.querySelector(selector);
-                    } catch (e) {
-                        return "bad-selector: " + e.message;
-                    }
-                    if (!el) return "no-match";
+            # Rebuild from the original with only accepted patches, so anything
+            # new that appears is attributable to this candidate alone.
+            await _rebuild(page, html, accepted)
 
-                    // <html>, <head> and <body> cannot be replaced via
-                    // outerHTML — their parent is the Document, which throws
-                    // NoModificationAllowedError. html-has-lang targets <html>
-                    // exactly, so this is a common case, not an edge one.
-                    // Copy the patched attributes across instead.
-                    const isRoot = el === document.documentElement
-                        || el === document.head
-                        || el === document.body;
-
-                    try {
-                        if (isRoot) {
-                            const parsed = new DOMParser().parseFromString(
-                                replacement, "text/html"
-                            );
-                            const source = parsed.querySelector(el.tagName)
-                                || parsed.documentElement;
-                            if (!source || !source.attributes) return "unparseable";
-                            for (const attr of Array.from(source.attributes)) {
-                                el.setAttribute(attr.name, attr.value);
-                            }
-                            return "attributes";
-                        }
-                        el.outerHTML = replacement;
-                        return "replaced";
-                    } catch (e) {
-                        return "apply-failed: " + e.message;
-                    }
-                }""",
-                [finding.selector, finding.patchedCode],
-            )
-            if outcome in ("replaced", "attributes"):
-                applied.append(finding)
-            elif outcome == "no-match":
+            outcome = await _apply(page, finding)
+            if outcome == "no-match":
                 rejected.append((finding, "selector no longer matched at patch time"))
-            else:
-                rejected.append((finding, f"patch could not be applied: {outcome}"))
-
-        after_raw = await rule_auditor.run_axe(page)
-        after_keys = _violation_keys(after_raw)
-        violations_after = rule_auditor.count_violations(after_raw)
-
-        # Anything present after that was not present before is collateral
-        # damage from our own patches.
-        introduced = after_keys - before_keys
-
-        for finding in applied:
-            key = (finding.category, finding.selector)
-            if key in after_keys:
-                rejected.append((finding, "original violation still present after patch"))
                 continue
+            if outcome not in _APPLIED_OK:
+                rejected.append((finding, f"patch could not be applied: {outcome}"))
+                continue
+
+            after_raw = await rule_auditor.run_axe(page)
+            after_keys = _violation_keys(after_raw)
+
+            if (finding.category, finding.selector) in after_keys:
+                rejected.append(
+                    (finding, "original violation still present after the patch")
+                )
+                continue
+
+            # Accepted patches never introduce anything — that is what this
+            # loop enforces — so any new key is this candidate's doing.
+            introduced = after_keys - before_keys
             if introduced:
                 rules = sorted({rule for rule, _ in introduced})
                 rejected.append(
-                    (finding, f"patch set introduced new violations: {', '.join(rules)}")
+                    (
+                        finding,
+                        "this patch introduced a new violation: "
+                        + ", ".join(rules),
+                    )
                 )
                 continue
-            # Only here, and only after both checks passed.
-            finding.mark_verified()
 
-            # Read the same element again from the patched tree. Chromium
-            # computes this name the same way it would for a real screen
-            # reader, so this is what the element now announces — measured,
-            # not predicted.
+            finding.mark_verified()
+            accepted.append(finding)
+
+        # Final state: the original plus every accepted patch, nothing else.
+        await _rebuild(page, html, accepted)
+        final_raw = await rule_auditor.run_axe(page)
+        violations_after = rule_auditor.count_violations(final_raw)
+
+        # Read the patched tree once, at the end, so each announcement reflects
+        # the DOM we are actually reporting.
+        for finding in accepted:
             heard = await announce.announcement_for(context, page, finding.selector)
             if heard is not None:
                 finding.announcedAfter = heard.render()
 
-        verified = [f for f in applied if f.status is FindingStatus.VERIFIED]
-
         return VerificationResult(
             violations_before=violations_before,
             violations_after=violations_after,
-            verified=verified,
+            verified=[f for f in accepted if f.status is FindingStatus.VERIFIED],
             rejected=rejected,
         )
     finally:
