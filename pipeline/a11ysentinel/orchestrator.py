@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from . import capture as capture_mod
+from . import jurisdiction as jurisdiction_mod
 from . import rule_auditor, verifier
 from .models import Audit, AuditStatus, Finding, Trigger
 
@@ -94,13 +95,23 @@ async def run_audit(
                 raw = await rule_auditor.run_axe(page)
                 audit.violationsBefore = rule_auditor.count_violations(raw)
 
+                # WCAG is what we measured. This only decides which regional
+                # framework to name alongside it, as context.
+                regional = jurisdiction_mod.detect(
+                    page_capture.url,
+                    lang=page_capture.language,
+                    html=page_capture.html,
+                )
+
                 findings, discards = await rule_auditor.normalise(
                     page,
                     raw,
                     page_url=page_capture.url,
                     framework=page_capture.framework,
+                    regional=regional,
                 )
                 result.discards = discards
+                result.discards.append(f"jurisdiction: {regional.explain()}")
             finally:
                 await context.close()
 

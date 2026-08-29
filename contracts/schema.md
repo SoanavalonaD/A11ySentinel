@@ -1,6 +1,9 @@
 # A11ySentinel — Data Contract
 
-**Status:** draft 3, awaiting Partner sign-off. Draft 2 added `status` to Finding; draft 3 added `announcedBefore` / `announcedAfter` — see the section on those below.
+**Status:** draft 4, awaiting Partner sign-off.
+Draft 2 added `status`. Draft 3 added `announcedBefore` / `announcedAfter`.
+**Draft 4 renames `rgaaCriterion`** — see "Standards" below. That one is a
+breaking change; the others were additive.
 **Authoritative.** If this file and any other document disagree, this file wins.
 
 The pipeline **writes**. The web layer **reads**. Neither side waits for the
@@ -70,7 +73,8 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
   "source": "axe",
   "category": "button-name",
   "wcagCriterion": "4.1.2",
-  "rgaaCriterion": "7.1",
+  "regionalFramework": "RGAA 4",
+  "regionalCriterion": "7.1",
   "severity": "critical",
   "userImpact": "Screen reader users hear only 'button' and cannot tell what it does.",
   "evidence": null,
@@ -99,7 +103,8 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
 | `source` | enum | `axe` or `visual` |
 | `category` | string | axe rule id (`image-alt`) when `source=axe`; the screaming-snake enum (`USELESS_ALT`) when `source=visual`. |
 | `wcagCriterion` | string | Dotted, no "WCAG" prefix: `1.4.3`. |
-| `rgaaCriterion` | string or null | Dotted. Null where no clean RGAA mapping exists. |
+| `regionalFramework` | string or null | Regional framework likely to apply, named as context. Null when no signal is strong enough. **Never a legal determination.** |
+| `regionalCriterion` | string or null | Equivalent criterion under that framework. Populated only for frameworks we hold a verified mapping for — currently RGAA only. |
 | `severity` | enum | `critical`, `serious`, `moderate`, `minor` |
 | `userImpact` | string | Plain-language consequence for a person. **Never a restatement of the rule.** |
 | `evidence` | string or null | What the model saw. Populated when `source=visual`, null for `axe`. |
@@ -120,6 +125,51 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
 | `announcedAfter` | string or null | What it announces after. Null on both when the element carries no announced role, or when no patch was applied. |
 
 ---
+
+## Standards — what we measure, and what we merely name
+
+**We measure WCAG 2.1 A/AA. Always, everywhere, for every site.** That is the
+global standard, and every regional framework below either adopts it or
+references it directly. The rule engine runs on WCAG tags only:
+
+```python
+"runOnly": {"type": "tag", "values": ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]}
+```
+
+`regionalFramework` does **not** change what is audited. It names the framework
+that most likely applies to a site, so a French public body sees RGAA
+referenced and a US federal agency sees Section 508 — the same findings, a
+familiar label.
+
+It is inferred from page metadata: the `lang` attribute, the TLD, and
+`hreflang` alternates. Which law actually binds a site depends on who operates
+it, where they are established and what sector they are in — none of which is
+knowable from a web page. So the inference is deliberately conservative and
+returns null rather than guess:
+
+| Signals | Result |
+|---|---|
+| `.fr` domain + `lang="fr"` | `RGAA 4`, confidence 0.75 |
+| `lang="fr-CA"` | `AODA` — French does not imply France |
+| `lang="fr"`, neutral TLD | **null** — too weak to name |
+| `.be` + `lang="nl-BE"` | `EN 301 549`, confidence 0.95 |
+| no signal | **null** |
+
+**Language is not jurisdiction.** A French-language page may be Canadian,
+Belgian, Swiss or Malagasy, and the detector is built around that.
+
+`regionalCriterion` carries a criterion number **only for frameworks we hold a
+verified mapping for — currently RGAA alone.** Others are named with no number,
+because naming a framework is a factual cross-reference while inventing a
+criterion number would be fabrication (hard rule 5).
+
+### How to word this in the UI
+
+Say: *"WCAG 1.1.1 — the equivalent criterion under RGAA 4 is 1.3."*
+
+Never: *"RGAA compliant"*, *"meets EN 301 549"*, or anything asserting which
+law applies to a site. Naming a likely framework is context. Asserting legal
+conformance is the claim that cost accessiBe $1M.
 
 ## Finding lifecycle — `status`
 
@@ -241,5 +291,13 @@ A `detected` finding renders as "we found this" with no diff. Only a
 2. **Who writes `proxyUrl`?** I have assumed you do, once the proxy can serve
    the audit. If you would rather the pipeline pre-compute a deterministic URL,
    say so.
-3. **`rgaaCriterion` nullable?** Currently nullable. If a null breaks a table
-   column for you, I can emit `"n/a"` instead.
+3. **`regionalCriterion` nullable?** Currently nullable, and null far more often
+   than `rgaaCriterion` was — we populate it only for frameworks with a
+   verified mapping, which today means RGAA alone. `regionalFramework` is often
+   set while `regionalCriterion` is null; that pairing is expected, not a bug.
+   If a null breaks a table column for you, say so.
+
+4. **Draft 4 renamed `rgaaCriterion`.** It is the only breaking change so far.
+   If you had a column bound to it, it is now two fields. Sorry for the churn —
+   we moved to WCAG-first framing, and a field named after one country's
+   framework did not survive that.

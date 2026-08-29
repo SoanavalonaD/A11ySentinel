@@ -98,7 +98,14 @@ class Finding(BaseModel):
     source: Source
     category: str
     wcagCriterion: str
-    rgaaCriterion: str | None = None
+    # WCAG is what we measure. This names the regional framework that most
+    # likely applies to this site, as context only — never a legal
+    # determination. Null when no signal is strong enough.
+    regionalFramework: str | None = None
+    # The equivalent criterion under that framework. Populated only where a
+    # verified mapping exists; naming a framework is a cross-reference,
+    # inventing a criterion number would be fabrication.
+    regionalCriterion: str | None = None
     severity: Severity
     userImpact: str
     evidence: str | None = None

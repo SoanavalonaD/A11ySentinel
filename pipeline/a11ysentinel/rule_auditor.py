@@ -15,6 +15,7 @@ from pathlib import Path
 
 from playwright.async_api import Page
 
+from . import jurisdiction as jurisdiction_mod
 from . import wcag_rgaa
 from .models import Finding, FindingStatus, Framework, Source
 
@@ -101,6 +102,7 @@ async def normalise(
     framework: Framework,
     screenshot_ref: str | None = None,
     start_index: int = 1,
+    regional: jurisdiction_mod.Jurisdiction | None = None,
 ) -> tuple[list[Finding], list[str]]:
     """Turn raw axe output into contract-shaped Findings.
 
@@ -115,6 +117,15 @@ async def normalise(
     findings: list[Finding] = []
     discards: list[str] = []
     index = start_index
+
+    regional_name = regional.framework if regional else None
+
+    def regional_criterion(m: wcag_rgaa.RuleMapping) -> str | None:
+        # A criterion number is only meaningful for a framework we hold a
+        # checked mapping for. Everything else gets the name and no number.
+        if not jurisdiction_mod.criterion_is_meaningful(regional_name):
+            return None
+        return m.rgaa
 
     for violation in raw_violations:
         rule_id = violation.get("id", "")
@@ -146,7 +157,8 @@ async def normalise(
                     source=Source.AXE,
                     category=rule_id,
                     wcagCriterion=mapping.wcag,
-                    rgaaCriterion=mapping.rgaa,
+                    regionalFramework=regional_name,
+                    regionalCriterion=regional_criterion(mapping),
                     severity=severity,
                     # Fallback impact text so Stage 1 reads well with no
                     # Gemini in the loop. TriageAgent overwrites this later.

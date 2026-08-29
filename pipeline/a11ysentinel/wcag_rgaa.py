@@ -1,12 +1,19 @@
-"""axe rule -> WCAG 2.1 AA and RGAA 4 criterion mapping.
+"""axe rule -> WCAG 2.1 AA, plus the RGAA 4 cross-reference.
 
 Scope is deliberately narrow. Per CLAUDE.md we target the ten axe rules that
 cover the majority of real violations rather than attempting full WCAG
 coverage. Everything else axe reports is still counted in violationsBefore
 but is not remediated.
 
-RGAA mappings are the closest equivalent, not a formal certification. Where no
-clean mapping exists the value is None and the contract allows null.
+WCAG is what the engine measures and what every finding is reported against.
+The RGAA column is a cross-reference for sites where that framework applies,
+not a second audit — see `jurisdiction.py`. It is the closest equivalent
+criterion, never a certification. Where no clean mapping exists the value is
+None and the contract allows null.
+
+RGAA is the only framework we hold a verified criterion mapping for. Others
+are named but carry no criterion number, because inventing one would be
+fabrication.
 """
 
 from __future__ import annotations
