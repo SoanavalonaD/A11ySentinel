@@ -1,0 +1,40 @@
+# --- secrets: never commit these ---
+.env
+.env.*
+!.env.example
+*-key.json
+*-credentials.json
+service-account*.json
+
+# --- python / pipeline ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- node / web ---
+node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- playwright ---
+playwright-report/
+test-results/
+.playwright/
+
+# --- local audit artifacts (screenshots, DOM snapshots) ---
+/artifacts/
+/tmp/
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

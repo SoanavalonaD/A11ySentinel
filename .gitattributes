@@ -1,0 +1,13 @@
+# Normalise everything to LF in the repo and in the working tree.
+# The team is mixed Windows/macOS and we build Linux containers from this
+# tree — CRLF in a shell script breaks the shebang inside the image.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+*.woff binary
+*.woff2 binary
