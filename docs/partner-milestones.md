@@ -146,7 +146,7 @@ The prompt is already written in `docs/A11ySentinel-Prompts.md`.
    **not** persist. State only survives if it travels in an Event's
    `actions.state_delta`. Direct mutation appears to work, because the next
    agent shares the live dict, then vanishes on read-back. See
-   `pipeline/adk_apps/a11ysentinel/agent.py` for a runnable version.
+   `pipeline/adk_apps/a11ysentinel_audit/agent.py` for a runnable version.
 
 There is also a case waiting for you in the demo site: a search field using
 `placeholder` as its label. axe accepts a placeholder as a weak accessible
@@ -170,6 +170,28 @@ Feeds the prospecting trigger.
 
 ### B9 — Devpost write-up
 Draft from the project plan; I review.
+
+---
+
+## Is this too much? Worth saying now rather than Sunday
+
+As it stands the split is nine items on your side against one agent on mine,
+and that is not a balanced weekend. The pipeline ran ahead partly because four
+of its seven agents are deterministic and needed no prompt iteration.
+
+So before Sunday, pick honestly:
+
+- **If you take `VisualAuditor` too**, something else has to go. B7 (prospect
+  seeder) is the most cuttable — the pipeline already picks targets on its own.
+  B3 (report) can be a styled view of the findings list rather than a separate
+  document.
+- **If you would rather not take it**, say so and it stays with Lewis. It is a
+  leaf node either way, so the handoff costs nothing.
+- **If anything here is already further along than I think**, tell me and I
+  will stop guessing at your side of the board.
+
+The one thing that cannot slip is B5, the architecture diagram. It is a
+required submission artifact and nothing else substitutes for it.
 
 ---
 
@@ -218,23 +240,37 @@ Measured on it: **21 violations → 4**, with 17 verified fixes and 3 flagged fo
 human input. The remaining four are colour-contrast, which we deliberately do
 not auto-patch because it lives in CSS — an easy line to deliver on camera.
 
-## Older note on the demo target
+## Running the agent graph yourself
 
-The plan is currently "a site picked randomly by the agent". Random
-*selection* is a legitimate product feature and it stays. But **the video must
-demonstrate against a domain we control** (outreach guard 3), for four
-reasons:
+Agents 1, 2 and 7 are ADK constructs, so you can watch the whole pipeline run
+stage by stage:
 
-- Random sites are often JS-heavy SPAs, which are out of scope — the demo could
-  find almost nothing
-- You cannot rehearse a target that might change before recording
-- Naming a real company's accessibility failures in a submitted video is the
-  wrong look for a project positioned against accessiBe
-- If the demo shows the outreach email, that is unsolicited mail to a real
-  third party on camera, which our own rules forbid
+```bash
+cd pipeline
+adk web adk_apps --port 8779
+```
 
-Lewis can build and host a seeded demo site under our own project. Say if you'd
-rather own that.
+Open `http://127.0.0.1:8779/dev-ui/`, pick `a11ysentinel_audit`, paste a URL
+and click the send arrow — Enter does not submit. You get the agent graph
+drawn from the `sub_agents` list, an event feed, and the session state written
+by each step. It is a better architecture exhibit than a slide, so it is worth
+a few seconds in the video.
+
+Three things that will otherwise cost you an afternoon, all of which cost me
+one:
+
+1. The app folder must not share a name with a package you import. `adk web`
+   puts the agents directory on `sys.path` and imports each subfolder by name,
+   so an app called `a11ysentinel` shadows the package of the same name and
+   fails as a circular import.
+2. Only the agents directory lands on `sys.path`, so the app has to locate the
+   project root itself.
+3. State only persists through `Event.actions.state_delta`.
+
+You will need `gcloud auth application-default login` for the Gemini stages.
+Without it, triage falls back to the deterministic sort and remediation drafts
+nothing — the run still completes with honest numbers, which is the fallback
+working, but you only see half the pipeline.
 
 ---
 
