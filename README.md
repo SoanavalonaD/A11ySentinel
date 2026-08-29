@@ -134,7 +134,7 @@ as the message (or send anything to use the default demo target). Headless
 equivalent:
 
 ```bash
-adk run adk_apps/a11ysentinel
+adk run adk_apps/a11ysentinel_audit
 ```
 
 Agents 4, 5 and 6 run inside those stages rather than as separate ADK

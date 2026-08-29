@@ -1,5 +1,12 @@
 """A11ySentinel as an ADK agent graph.
 
+NOTE ON THE FOLDER NAME: this app is `a11ysentinel_audit`, deliberately not
+`a11ysentinel`. `adk web` puts the agents directory on sys.path and imports
+each subfolder by name, so an app folder sharing a name with the pipeline
+package shadows it — `from a11ysentinel import capture` then resolves to
+this folder and fails as a circular import. Importing by full dotted path
+from the project root hides the problem, so it only appears under adk web.
+
 Run the Dev UI from `pipeline/`:
 
     adk web adk_apps
@@ -10,7 +17,7 @@ emitted, and lets you inspect session state after every step.
 
 Or headless:
 
-    adk run adk_apps/a11ysentinel
+    adk run adk_apps/a11ysentinel_audit
 
 What is genuinely an ADK agent here
 -----------------------------------
@@ -55,7 +62,17 @@ the orchestrator type the day before submission is not a trade worth making.
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 from typing import AsyncGenerator
+
+# `adk web` puts only the agents directory on sys.path, so the pipeline package
+# two levels up is not importable by default. Adding it here keeps the app
+# self-contained: it works from `adk web adk_apps`, from `adk run`, and from a
+# plain import, without needing the package installed or a PYTHONPATH set.
+_PIPELINE_ROOT = Path(__file__).resolve().parents[2]
+if str(_PIPELINE_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PIPELINE_ROOT))
 
 from google.adk.agents import BaseAgent, SequentialAgent
 from google.adk.agents.invocation_context import InvocationContext
