@@ -45,6 +45,15 @@ DEFAULT_CONCURRENCY = int(os.getenv("REMEDIATOR_CONCURRENCY", "6"))
 MAX_GROWTH_FACTOR = 4.0
 MAX_GROWTH_SLACK = 400
 
+# Rules an element-level patch cannot fix, so we do not spend a model call
+# trying. Contrast is decided by CSS that usually lives in a stylesheet,
+# not on the element — asked to fix it, the model returns the markup
+# unchanged, which our own identical-patch check then rejects. Observed
+# three times in one run, each burning a slot in the remediation budget.
+# These findings are still detected, counted and reported; we simply do
+# not pretend to draft a fix for them.
+UNPATCHABLE_AT_ELEMENT_LEVEL = frozenset({"color-contrast"})
+
 
 @dataclass
 class PatchOutcome:
@@ -241,7 +250,14 @@ async def remediate_all(
     client = _client()
     context_by_id = context_by_id or {}
 
-    targets = findings if limit is None else findings[:limit]
+    remediable = [
+        f for f in findings if f.category not in UNPATCHABLE_AT_ELEMENT_LEVEL
+    ]
+    skipped_rule = [
+        f for f in findings if f.category in UNPATCHABLE_AT_ELEMENT_LEVEL
+    ]
+
+    targets = remediable if limit is None else remediable[:limit]
     gate = asyncio.Semaphore(concurrency)
 
     async def run(f: Finding) -> PatchOutcome:
@@ -255,9 +271,18 @@ async def remediate_all(
 
     outcomes = list(await asyncio.gather(*(run(f) for f in targets)))
 
-    for skipped in findings[len(targets) :]:
+    for skipped in remediable[len(targets) :]:
         outcomes.append(
             PatchOutcome(skipped, False, f"beyond the remediation cap of {limit}")
+        )
+    for skipped in skipped_rule:
+        outcomes.append(
+            PatchOutcome(
+                skipped,
+                False,
+                f"{skipped.category} cannot be fixed by an element-level patch "
+                "— it needs a CSS change",
+            )
         )
 
     return RemediationReport(outcomes=outcomes)

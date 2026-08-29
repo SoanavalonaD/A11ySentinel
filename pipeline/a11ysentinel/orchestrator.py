@@ -133,16 +133,42 @@ async def run_audit(
                     if o.reason
                 )
 
+            # Findings are real work already paid for. Attach them before
+            # verification runs, so a failure there costs us the delta but not
+            # the audit — an earlier version discarded 81 genuine findings
+            # because one patch could not be applied.
+            result.findings = findings
+
             # Agent 7. With no patches this reports before == after, which is
             # the honest stage 1 result rather than an invented delta.
-            verification = await verifier.verify_patches(
-                browser,
-                page_url=page_capture.url,
-                html=page_capture.html,
-                findings=findings,
-            )
-            audit.violationsAfter = verification.violations_after
-            result.findings = findings
+            try:
+                verification = await verifier.verify_patches(
+                    browser,
+                    page_url=page_capture.url,
+                    html=page_capture.html,
+                    findings=findings,
+                )
+                audit.violationsAfter = verification.violations_after
+                result.discards.extend(
+                    f"{f.findingId} ({f.category}): {reason}"
+                    for f, reason in verification.rejected
+                    if f.patchedCode
+                )
+            except Exception as exc:  # noqa: BLE001
+                # violationsAfter stays None, which the contract defines as
+                # "pending" — never 0, which would read as "we fixed
+                # everything". Findings are still reported.
+                audit.error = f"verification failed: {type(exc).__name__}: {exc}"
+                result.discards.append(f"verification: {exc}")
+
+            # Anything still at `patched` failed verification. Drop the
+            # patch so the finding is reported as the real violation it is,
+            # rather than being refused at the write gate and disappearing.
+            from .models import FindingStatus
+
+            for finding in findings:
+                if finding.status is FindingStatus.PATCHED:
+                    finding.revert_to_detected()
 
         audit.status = AuditStatus.COMPLETE
         audit.completedAt = _now_iso()

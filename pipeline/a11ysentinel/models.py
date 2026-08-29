@@ -177,6 +177,22 @@ class Finding(BaseModel):
         self.status = FindingStatus.PATCHED
         self.verified = False
 
+    def revert_to_detected(self) -> None:
+        """Drop a patch that did not survive verification.
+
+        Without this the finding is stranded at `patched`, which the write gate
+        refuses — so a real violation would silently vanish from the report
+        because our own fix attempt failed. Discarding the patch and keeping
+        the finding is the honest outcome: the violation is real either way,
+        we just have nothing to offer for it.
+        """
+        self.patchedCode = None
+        self.changeSummary = None
+        self.requiresHumanInput = False
+        self.humanGuidance = None
+        self.status = FindingStatus.DETECTED
+        self.verified = False
+
     def mark_verified(self) -> None:
         """Only the Verifier may call this, and only after re-running axe."""
         if self.patchedCode is None:

@@ -89,19 +89,56 @@ async def verify_patches(
         rejected: list[tuple[Finding, str]] = []
 
         for finding in drafted:
-            ok = await page.evaluate(
+            # Applying a patch must never be able to fail the audit. A single
+            # unpatchable element previously threw out of page.evaluate and
+            # discarded an entire 81-violation run, so every failure mode is
+            # caught in the page and returned as a string.
+            outcome = await page.evaluate(
                 """([selector, replacement]) => {
-                    const el = document.querySelector(selector);
-                    if (!el) return false;
-                    el.outerHTML = replacement;
-                    return true;
+                    let el;
+                    try {
+                        el = document.querySelector(selector);
+                    } catch (e) {
+                        return "bad-selector: " + e.message;
+                    }
+                    if (!el) return "no-match";
+
+                    // <html>, <head> and <body> cannot be replaced via
+                    // outerHTML — their parent is the Document, which throws
+                    // NoModificationAllowedError. html-has-lang targets <html>
+                    // exactly, so this is a common case, not an edge one.
+                    // Copy the patched attributes across instead.
+                    const isRoot = el === document.documentElement
+                        || el === document.head
+                        || el === document.body;
+
+                    try {
+                        if (isRoot) {
+                            const parsed = new DOMParser().parseFromString(
+                                replacement, "text/html"
+                            );
+                            const source = parsed.querySelector(el.tagName)
+                                || parsed.documentElement;
+                            if (!source || !source.attributes) return "unparseable";
+                            for (const attr of Array.from(source.attributes)) {
+                                el.setAttribute(attr.name, attr.value);
+                            }
+                            return "attributes";
+                        }
+                        el.outerHTML = replacement;
+                        return "replaced";
+                    } catch (e) {
+                        return "apply-failed: " + e.message;
+                    }
                 }""",
                 [finding.selector, finding.patchedCode],
             )
-            if ok:
+            if outcome in ("replaced", "attributes"):
                 applied.append(finding)
-            else:
+            elif outcome == "no-match":
                 rejected.append((finding, "selector no longer matched at patch time"))
+            else:
+                rejected.append((finding, f"patch could not be applied: {outcome}"))
 
         after_raw = await rule_auditor.run_axe(page)
         after_keys = _violation_keys(after_raw)
