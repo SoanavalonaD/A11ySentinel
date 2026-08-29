@@ -11,7 +11,7 @@ Run the Dev UI from `pipeline/`:
 
     adk web adk_apps
 
-Then pick `a11ysentinel`, and send any message — or a URL to override the
+Then pick `a11ysentinel_audit`, and send any message — or a URL to override the
 default target. The UI shows the agent tree, streams each Event as it is
 emitted, and lets you inspect session state after every step.
 
@@ -22,11 +22,12 @@ Or headless:
 What is genuinely an ADK agent here
 -----------------------------------
 
-Agents 1, 2 and 7 are ADK constructs, and they are the ones where that buys
-something:
+Agents 1, 2, 3 and 7 are ADK constructs, and they are the ones where that
+buys something:
 
   1 RootOrchestrator   SequentialAgent  — composition, state, event streaming
   2 RuleAuditor        BaseAgent        — axe-core, deterministic
+  3 VisualAuditor      BaseAgent        — multimodal, finds what axe cannot
   7 Verifier           BaseAgent        — axe re-run, deterministic
 
 Agents 4, 5 and 6 are wrapped as stages that call the existing
@@ -34,7 +35,7 @@ implementations. That is deliberate. `remediate_all` already does bounded
 concurrency, per-finding validation and rejection reporting; re-expressing it
 as a `ParallelAgent` of `LlmAgent`s the day before submission would risk
 working, tested code to gain a class name. The stage boundaries are real
-either way, and the Dev UI shows all four.
+either way, and the Dev UI shows all five.
 
 Four things to know about ADK
 -----------------------------
@@ -136,8 +137,9 @@ class RuleAuditorAgent(BaseAgent):
         yield event(self.name, f"capturing {url}", target_url=url)
 
         async with capture_mod.BrowserSession() as browser:
+            # Screenshot is required by the VisualAuditor stage downstream.
             page_capture = await capture_mod.capture_page(
-                browser, url, screenshot=False
+                browser, url, screenshot=True
             )
             context = await browser.new_context(viewport=capture_mod.VIEWPORT)
             try:
@@ -171,12 +173,85 @@ class RuleAuditorAgent(BaseAgent):
             f"{regional.explain()}",
             page_html=page_capture.html,
             page_language=page_capture.language,
+            # base64 because session state has to be serialisable.
+            screenshot_b64=(
+                __import__("base64")
+                .b64encode(page_capture.screenshot_png)
+                .decode()
+                if page_capture.screenshot_png
+                else None
+            ),
             violations_before=before,
             # Models cannot cross the state boundary; a session service has to
             # serialise what it stores.
             findings=[f.to_firestore() for f in findings],
             regional_framework=regional.framework,
             discards=discards,
+        )
+
+
+class VisualAuditorStage(BaseAgent):
+    """Agent 3 — finds what a rule engine structurally cannot.
+
+    axe can tell you an alt attribute is missing; it cannot tell you the alt
+    text is useless. It accepts a placeholder as an accessible name, so a field
+    labelled only by its placeholder passes every automated check and still
+    fails the person filling it in.
+
+    Every selector this returns is queried against the real DOM before the
+    finding is kept — hard rule 4, and the most important defensive check in
+    the pipeline.
+    """
+
+    async def _run_async_impl(
+        self, ctx: InvocationContext
+    ) -> AsyncGenerator[Event, None]:
+        raw = ctx.session.state.get("findings") or []
+        html = ctx.session.state.get("page_html")
+        shot_b64 = ctx.session.state.get("screenshot_b64")
+
+        if not html or not shot_b64:
+            yield event(self.name, "no screenshot in state; cannot judge blind")
+            return
+
+        import base64
+
+        from a11ysentinel import visual_auditor
+
+        axe_findings = [Finding.model_validate(f) for f in raw]
+
+        async with capture_mod.BrowserSession() as browser:
+            context = await browser.new_context(viewport=capture_mod.VIEWPORT)
+            try:
+                page = await context.new_page()
+                await page.set_content(html, wait_until="domcontentloaded")
+                result = await visual_auditor.audit(
+                    page,
+                    screenshot_png=base64.b64decode(shot_b64),
+                    html=html,
+                    page_url=ctx.session.state.get("target_url", ""),
+                    axe_findings=axe_findings,
+                    language=ctx.session.state.get("page_language"),
+                    regional_framework=ctx.session.state.get("regional_framework"),
+                    start_index=len(axe_findings) + 1,
+                )
+            finally:
+                await context.close()
+
+        combined = axe_findings + result.findings
+        note = (
+            f"{len(result.findings)} findings a rule engine cannot detect, "
+            f"{len(result.discards)} candidates discarded"
+        )
+        if result.suspicious:
+            note += f". {len(result.suspicious)} suspicious passage(s) in the page — reported, not obeyed"
+        if not result.model_used:
+            note = "visual audit unavailable; continuing with axe findings only"
+
+        yield event(
+            self.name,
+            note,
+            findings=[f.to_firestore() for f in combined],
         )
 
 
@@ -309,6 +384,10 @@ root_agent = SequentialAgent(
         RuleAuditorAgent(
             name="RuleAuditor",
             description="Runs axe-core against the captured DOM. Deterministic.",
+        ),
+        VisualAuditorStage(
+            name="VisualAuditor",
+            description="Multimodal pass for problems axe structurally cannot detect.",
         ),
         TriageStage(
             name="TriageAgent",

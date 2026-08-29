@@ -106,6 +106,11 @@ async def _main() -> int:
         help="Rank and rewrite impact with Gemini (agent 4). Needs Vertex AI.",
     )
     parser.add_argument(
+        "--visual",
+        action="store_true",
+        help="Run the VisualAuditor (agent 3) for findings axe cannot detect.",
+    )
+    parser.add_argument(
         "--prospect",
         action="store_true",
         help="Mark trigger as prospect rather than manual.",
@@ -124,6 +129,7 @@ async def _main() -> int:
         remediate=args.remediate,
         remediation_limit=(args.remediation_limit or None),
         model_triage=args.triage,
+        visual=args.visual,
     )
 
     print(_summary(result))

@@ -59,6 +59,7 @@ async def run_audit(
     remediate: bool = False,
     remediation_limit: int | None = 12,
     model_triage: bool = False,
+    visual: bool = False,
 ) -> AuditResult:
     """Single-page Stage 1 audit, end to end.
 
@@ -112,6 +113,37 @@ async def run_audit(
                 )
                 result.discards = discards
                 result.discards.append(f"jurisdiction: {regional.explain()}")
+
+                # Agent 3. Runs on the same page object, so every selector
+                # it returns is validated against the DOM the findings are
+                # anchored to. Needs the screenshot — it cannot judge blind.
+                if visual and page_capture.screenshot_png:
+                    from . import visual_auditor
+
+                    visual_result = await visual_auditor.audit(
+                        page,
+                        screenshot_png=page_capture.screenshot_png,
+                        html=page_capture.html,
+                        page_url=page_capture.url,
+                        axe_findings=findings,
+                        language=page_capture.language,
+                        framework=page_capture.framework,
+                        regional_framework=regional.framework,
+                        start_index=len(findings) + 1,
+                    )
+                    findings.extend(visual_result.findings)
+                    result.discards.extend(visual_result.discards)
+                    for note in visual_result.suspicious:
+                        # Page text that tried to instruct the model.
+                        # Reported, never obeyed, and never filed as a
+                        # violation — it has no WCAG criterion.
+                        result.discards.append(
+                            f"SUSPICIOUS CONTENT in page: {note}"
+                        )
+                elif visual:
+                    result.discards.append(
+                        "visual audit skipped: no screenshot captured"
+                    )
             finally:
                 await context.close()
 

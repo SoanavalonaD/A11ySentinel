@@ -64,6 +64,7 @@ class AuditRequest(BaseModel):
     remediate: bool = False
     remediationLimit: int = 12
     modelTriage: bool = False
+    visual: bool = False
 
     @field_validator("url")
     @classmethod
@@ -124,6 +125,7 @@ async def _run_and_persist(
     remediate: bool = False,
     limit: int = 12,
     triage: bool = False,
+    visual: bool = False,
 ) -> dict[str, Any]:
     result = await run_audit(
         url,
@@ -131,6 +133,7 @@ async def _run_and_persist(
         remediate=remediate,
         remediation_limit=limit or None,
         model_triage=triage,
+        visual=visual,
     )
     payload = result.to_contract_json()
 
@@ -166,6 +169,7 @@ async def audit(request: AuditRequest) -> dict[str, Any]:
         remediate=request.remediate,
         limit=request.remediationLimit,
         triage=request.modelTriage,
+        visual=request.visual,
     )
 
 
@@ -199,6 +203,7 @@ async def pubsub(request: Request) -> dict[str, Any]:
         remediate=bool(decoded.get("remediate", False)),
         limit=int(decoded.get("remediationLimit", 12)),
         triage=bool(decoded.get("modelTriage", False)),
+        visual=bool(decoded.get("visual", False)),
     )
 
 
@@ -208,6 +213,7 @@ class ProspectRequest(BaseModel):
     remediate: bool = True
     remediationLimit: int = 12
     modelTriage: bool = True
+    visual: bool = True
 
 
 @app.post("/prospect")
@@ -240,6 +246,7 @@ async def prospect(request: ProspectRequest) -> dict[str, Any]:
         remediate=request.remediate,
         limit=request.remediationLimit,
         triage=request.modelTriage,
+        visual=request.visual,
     )
     payload["selection"] = {
         "chosen": selection.chosen,
