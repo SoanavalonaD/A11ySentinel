@@ -135,12 +135,57 @@ def main() -> int:
         UnverifiedFindingError,
     )
 
+    test_revert()
+
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILED: {', '.join(FAILURES)}\n")
         return 1
     print("All lifecycle guards hold.\n")
     return 0
+
+
+
+
+def test_revert() -> int:
+    """A patch that fails verification must not take the finding with it."""
+    print("\nFailed patches revert rather than vanish\n")
+    failures = 0
+
+    f = Finding(**base())
+    f.mark_patched("<button aria-label='Send'></button>", "Named the button.")
+    check("a drafted patch sits at patched", f.status is FindingStatus.PATCHED)
+
+    f.revert_to_detected()
+    check("revert returns it to detected", f.status is FindingStatus.DETECTED)
+    check("revert clears the patch", f.patchedCode is None)
+    check("revert clears the summary", f.changeSummary is None)
+    check("revert clears verified", f.verified is False)
+
+    try:
+        f.validate_for_write()
+        print("  PASS  a reverted finding can be written, so the violation is still reported")
+    except UnverifiedFindingError as exc:
+        print(f"  FAIL  a reverted finding should be writable  {exc}")
+        failures += 1
+
+    # requiresHumanInput must be cleared too, or invariant 3 breaks: the flag
+    # would survive with no guidance and no patch to attach it to.
+    g = Finding(**base())
+    g.mark_patched("<img alt='TODO'>", "Added a placeholder.")
+    g.requiresHumanInput = True
+    g.humanGuidance = "Describe the photo."
+    g.revert_to_detected()
+    check("revert clears requiresHumanInput", g.requiresHumanInput is False)
+    check("revert clears humanGuidance", g.humanGuidance is None)
+    try:
+        g.validate_for_write()
+        print("  PASS  a reverted human-input finding still passes the gate")
+    except UnverifiedFindingError as exc:
+        print(f"  FAIL  reverted human-input finding rejected  {exc}")
+        failures += 1
+
+    return failures
 
 
 if __name__ == "__main__":
