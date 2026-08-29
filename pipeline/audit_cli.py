@@ -101,6 +101,11 @@ async def _main() -> int:
         help="Cap how many findings are sent to the model. 0 for no cap.",
     )
     parser.add_argument(
+        "--triage",
+        action="store_true",
+        help="Rank and rewrite impact with Gemini (agent 4). Needs Vertex AI.",
+    )
+    parser.add_argument(
         "--prospect",
         action="store_true",
         help="Mark trigger as prospect rather than manual.",
@@ -118,6 +123,7 @@ async def _main() -> int:
         screenshot=not args.no_screenshot,
         remediate=args.remediate,
         remediation_limit=(args.remediation_limit or None),
+        model_triage=args.triage,
     )
 
     print(_summary(result))

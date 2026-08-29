@@ -22,7 +22,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
-from a11ysentinel import store
+from a11ysentinel import capture as capture_mod
+from a11ysentinel import prospector, store
 from a11ysentinel.models import Trigger
 from a11ysentinel.orchestrator import run_audit
 from a11ysentinel.rule_auditor import AXE_PATH
@@ -47,6 +48,7 @@ class AuditRequest(BaseModel):
     # useful on its own.
     remediate: bool = False
     remediationLimit: int = 12
+    modelTriage: bool = False
 
     @field_validator("url")
     @classmethod
@@ -101,10 +103,19 @@ async def readyz() -> dict[str, Any]:
 
 
 async def _run_and_persist(
-    url: str, trigger: Trigger, *, remediate: bool = False, limit: int = 12
+    url: str,
+    trigger: Trigger,
+    *,
+    remediate: bool = False,
+    limit: int = 12,
+    triage: bool = False,
 ) -> dict[str, Any]:
     result = await run_audit(
-        url, trigger=trigger, remediate=remediate, remediation_limit=limit or None
+        url,
+        trigger=trigger,
+        remediate=remediate,
+        remediation_limit=limit or None,
+        model_triage=triage,
     )
     payload = result.to_contract_json()
 
@@ -139,6 +150,7 @@ async def audit(request: AuditRequest) -> dict[str, Any]:
         request.trigger,
         remediate=request.remediate,
         limit=request.remediationLimit,
+        triage=request.modelTriage,
     )
 
 
@@ -171,4 +183,55 @@ async def pubsub(request: Request) -> dict[str, Any]:
         trigger,
         remediate=bool(decoded.get("remediate", False)),
         limit=int(decoded.get("remediationLimit", 12)),
+        triage=bool(decoded.get("modelTriage", False)),
     )
+
+
+class ProspectRequest(BaseModel):
+    """Nothing here names a target. That is the point."""
+
+    remediate: bool = True
+    remediationLimit: int = 12
+    modelTriage: bool = True
+
+
+@app.post("/prospect")
+async def prospect(request: ProspectRequest) -> dict[str, Any]:
+    """Autonomous run: the agent chooses its own target, then audits it.
+
+    No URL is supplied by anyone. The candidate pool comes from configuration
+    (PROSPECT_POOL), the choice is the agent's, and the reasoning is returned
+    alongside the audit so the decision can be shown rather than asserted.
+    """
+    async with capture_mod.BrowserSession() as browser:
+        selection = await prospector.pick_target(browser)
+
+    if not selection.chosen:
+        return {
+            "selection": {
+                "chosen": None,
+                "reason": selection.reason,
+                "considered": [
+                    {"url": c.url, "violations": c.violations, "skipped": c.skipped}
+                    for c in selection.considered
+                ],
+            },
+            "audit": None,
+        }
+
+    payload = await _run_and_persist(
+        selection.chosen,
+        Trigger.PROSPECT,
+        remediate=request.remediate,
+        limit=request.remediationLimit,
+        triage=request.modelTriage,
+    )
+    payload["selection"] = {
+        "chosen": selection.chosen,
+        "reason": selection.reason,
+        "considered": [
+            {"url": c.url, "violations": c.violations, "skipped": c.skipped}
+            for c in selection.considered
+        ],
+    }
+    return payload

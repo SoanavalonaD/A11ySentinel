@@ -57,6 +57,7 @@ async def run_audit(
     screenshot: bool = True,
     remediate: bool = False,
     remediation_limit: int | None = 12,
+    model_triage: bool = False,
 ) -> AuditResult:
     """Single-page Stage 1 audit, end to end.
 
@@ -103,7 +104,19 @@ async def run_audit(
             finally:
                 await context.close()
 
-            findings = rule_auditor.fallback_triage(findings)
+            # Agent 4. Falls back to the deterministic sort on any failure,
+            # so a model outage reorders the report but never loses it.
+            if model_triage and findings:
+                from . import triage as triage_mod
+
+                outcome = await triage_mod.triage(
+                    findings, page_url=page_capture.url
+                )
+                findings = outcome.findings
+                if outcome.reason:
+                    result.discards.append(f"triage: {outcome.reason}")
+            else:
+                findings = rule_auditor.fallback_triage(findings)
 
             # Agents 5 and 6. Off by default so stage 1 stays model-free and
             # runs with no Vertex AI quota. Findings beyond the cap stay at
