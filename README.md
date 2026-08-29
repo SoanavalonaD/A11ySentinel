@@ -33,15 +33,21 @@ rather than a plausible guess.
 
 Seven ADK agents behind a `SequentialAgent` orchestrator:
 
-| # | Agent | Type | Uses Gemini |
-|---|---|---|---|
-| 1 | `RootOrchestrator` | `SequentialAgent` | no |
-| 2 | `RuleAuditor` | Custom (axe-core) | no |
-| 3 | `VisualAuditor` | `LlmAgent` | yes |
-| 4 | `TriageAgent` | `LlmAgent` | yes |
-| 5 | `RemediationFanOut` | `ParallelAgent` | no |
-| 6 | `Remediator` | `LlmAgent`, one per finding | yes |
-| 7 | `Verifier` | Custom (axe re-run) | no |
+All seven are built and deployed.
+
+| # | Agent | Type | Uses Gemini | What it contributes |
+|---|---|---|---|---|
+| 1 | `RootOrchestrator` | ADK `SequentialAgent` | no | Composition, session state, event stream |
+| 2 | `RuleAuditor` | ADK `BaseAgent` | no | axe-core. The ground truth |
+| 3 | `VisualAuditor` | ADK `BaseAgent` (multimodal) | yes | What a rule engine structurally cannot detect |
+| 4 | `TriageAgent` | stage | yes | Harm ordering, plain-language impact |
+| 5 | `RemediationFanOut` | stage | no | Bounded concurrent fan-out |
+| 6 | `Remediator` | stage, one call per finding | yes | Drafts the patch |
+| 7 | `Verifier` | ADK `BaseAgent` | no | Re-runs axe. The only step that sets `verified` |
+
+Agent 3 is a `BaseAgent` rather than an `LlmAgent` because every selector the
+model returns must be queried against the live DOM before the finding is kept,
+and that check belongs in code, not in a prompt.
 
 Agents 2 and 7 are deliberately model-free. The before/after violation counts
 come from the same deterministic rule engine run twice, so the numbers are

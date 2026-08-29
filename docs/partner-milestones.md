@@ -45,7 +45,8 @@ the demo still works.
 
 ## What the pipeline already gives you
 
-Stage 1 is live. You are not waiting on me for anything below.
+**All seven agents are built and deployed.** You are not waiting on me for
+anything below.
 
 | | |
 |---|---|
@@ -65,7 +66,11 @@ curl -X POST https://a11ysentinel-pipeline-708226575684.us-central1.run.app/audi
   -d '{"url":"https://www.w3.org/WAI/demos/bad/before/home.html"}'
 ```
 
-Returns roughly 80 violations and 79 findings, and writes them to Firestore.
+Add `"visual": true` for the multimodal pass, `"remediate": true` for real
+patches, `"modelTriage": true` for plain-language impact. On our demo site
+the full run gives **21 violations to 4**, with 24 findings — 21 from axe,
+3 the rule engine cannot reach.
+
 **Real output has the same keys as the fixture**, so a UI built on the fixture
 works on real data with no changes.
 
@@ -132,35 +137,28 @@ carries a visible opt-out line.
 ### B5 — Architecture diagram
 **Required submission artifact.** Judges look for it.
 
-### B6 — `VisualAuditor` (agent 3) — *if you're taking it*
-Python, `LlmAgent`, Gemini 3.7 Flash. Input: screenshot + trimmed DOM + the
-axe findings. Output: only what axe **cannot** catch.
-The prompt is already written in `docs/A11ySentinel-Prompts.md`.
+### B6 — ~~`VisualAuditor` (agent 3)~~ — **built, not yours**
 
-**Two things that will otherwise cost you an hour:**
+Lewis built it. **Do not spend time on this.** Put those hours into B2 and B5.
 
-1. Use `location="global"` in your genai client. The Gemini 3.x family is
-   not served from regional endpoints — a 3.x model id returns NOT_FOUND
-   against `us-central1`, which reads as "this model does not exist".
-2. If you build it as an ADK agent: assigning to `ctx.session.state` does
-   **not** persist. State only survives if it travels in an Event's
-   `actions.state_delta`. Direct mutation appears to work, because the next
-   agent shares the live dict, then vanishes on read-back. See
-   `pipeline/adk_apps/a11ysentinel_audit/agent.py` for a runnable version.
+Worth knowing what it does, because it is the strongest thing in the demo.
+axe can tell you an alt attribute is missing; it cannot tell you the alt text
+is useless. On our demo page it found three problems no rule engine can reach:
 
-There is also a case waiting for you in the demo site: a search field using
-`placeholder` as its label. axe accepts a placeholder as a weak accessible
-name, so the rule engine does **not** flag it — and placeholder-as-label is
-one of the most common real mistakes. That is exactly the gap this agent
-exists to fill, and it makes a good demo beat.
+| Finding | Why axe misses it |
+|---|---|
+| `MEANINGLESS_LINK_TEXT` — "cliquez ici" | The link *has* text, so the rule passes |
+| `COLOUR_ONLY_MEANING` — stock as a green/red dot | Needs to see colour is the only signal |
+| `PLACEHOLDER_AS_LABEL` — the search field | axe accepts a placeholder as an accessible name |
 
-**The critical part is in code, not the prompt:** validate every returned
-`selector` against the real DOM and **discard any finding matching zero
-elements**. Also discard anything with `confidence < 0.7`. Gemini will
-confidently invent selectors. An unanchored finding is worse than a missed one.
+That last one is the demo moment: **axe reports the field as fine, and the
+visual agent catches it.** If you are writing the Devpost description, that one
+contrast is the whole multimodal argument in a sentence.
 
-It's a leaf node — testable in isolation against a saved screenshot, so it
-won't block me. Expect several rounds of prompt iteration; budget for it.
+Findings from it arrive with `source: "visual"` and carry `evidence` — what the
+model actually saw. `source: "axe"` findings have `evidence: null`. Both flow
+through remediation and verification identically, so your UI needs no special
+case beyond showing `evidence` when it is present.
 
 ### B7 — Prospect list seeder
 Feeds the prospecting trigger.
@@ -175,23 +173,23 @@ Draft from the project plan; I review.
 
 ## Is this too much? Worth saying now rather than Sunday
 
-As it stands the split is nine items on your side against one agent on mine,
-and that is not a balanced weekend. The pipeline ran ahead partly because four
-of its seven agents are deterministic and needed no prompt iteration.
+**All seven agents are built**, so the pipeline needs nothing further from
+you. That takes B6 off your list entirely and leaves eight items, of which two
+are the ones that matter:
 
-So before Sunday, pick honestly:
+- **B2, the proxy.** The only piece of the demo still missing.
+- **B5, the architecture diagram.** A required submission artifact. Nothing
+  substitutes for it, and it cannot slip.
 
-- **If you take `VisualAuditor` too**, something else has to go. B7 (prospect
-  seeder) is the most cuttable — the pipeline already picks targets on its own.
-  B3 (report) can be a styled view of the findings list rather than a separate
-  document.
-- **If you would rather not take it**, say so and it stays with Lewis. It is a
-  leaf node either way, so the handoff costs nothing.
-- **If anything here is already further along than I think**, tell me and I
-  will stop guessing at your side of the board.
+Two you can drop if time gets tight:
 
-The one thing that cannot slip is B5, the architecture diagram. It is a
-required submission artifact and nothing else substitutes for it.
+- **B7, the prospect seeder** — the pipeline already picks its own targets from
+  a configured pool, so this adds nothing the demo needs.
+- **B3, the report** — a styled view of the findings list would carry the same
+  point as a separate document.
+
+If anything here is further along than I think, tell me and I will stop
+guessing at your side of the board.
 
 ---
 
@@ -212,9 +210,8 @@ required submission artifact and nothing else substitutes for it.
 2. **Who writes `proxyUrl`?** I've assumed you do, once the proxy can serve.
 3. **`rgaaCriterion` nullable?** Currently nullable. If a null breaks a table
    column, I can emit `"n/a"`.
-4. **Are you taking `VisualAuditor`?** Yes or no. It is the only agent left
-   unbuilt, so this is now the single open question that changes what
-   happens next.
+4. ~~Are you taking `VisualAuditor`?~~ **Answered — it is built.** Nothing
+   needed from you.
 5. **Demo target site.** See the note below.
 
 ---
@@ -311,7 +308,7 @@ If this doesn't work Sunday night, Monday is triage instead of building.
 | 1 | 1, 2, 7 | Real before/after counts, no Gemini needed | **Done, deployed** |
 | 2 | + 5, 6 | Real code patches | **Done, deployed** |
 | 4 | + 4 | Prioritised output, plain-language impact | **Done, deployed** |
-| 3 | + 3 | Multimodal findings axe cannot catch | **Yours, if you take it** |
+| 3 | + 3 | Multimodal findings axe cannot catch | **Done, deployed** |
 
 Agents 4 and 5 can ship as a plain sort and a for-loop. If time runs out, cut
 from the bottom of that table.

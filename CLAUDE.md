@@ -180,8 +180,8 @@ Submit by **15:00 PDT Monday**, not 17:00. Devpost slows near deadlines.
 
 ## Open decisions
 
-- **Does the partner write Python?** If yes, `VisualAuditor` (agent 3) moves to
-  them — it's a leaf node, testable in isolation against a saved screenshot.
-  `Remediator` (agent 6) is a weaker handoff: it sits between agents 5 and 7,
-  so the seam lands mid-pipeline. Decide now, not Sunday.
+- ~~Does the partner write Python?~~ **Closed.** All seven agents are built
+  in `pipeline/`. `VisualAuditor` (agent 3) was the open handoff; it is done,
+  so the partner's hours go to the proxy, the dashboard and the architecture
+  diagram instead.
 - Demo target site — pick and test it early, not Monday morning.

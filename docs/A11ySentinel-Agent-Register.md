@@ -14,13 +14,18 @@ Three different things in this project get called "agent". Keeping them separate
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
 | 1 | `RootOrchestrator` | `SequentialAgent` | audit job message | completed audit record | no | **L** |
 | 2 | `RuleAuditor` | Custom | DOM snapshot | axe violations → Finding\[\] | no | **L** |
-| 3 | `VisualAuditor` | `LlmAgent` | screenshot \+ trimmed DOM \+ axe findings | Finding\[\] (visual only) | **yes** | **L or P** |
+| 3 | `VisualAuditor` | Custom (multimodal) | screenshot \+ trimmed DOM \+ axe findings | Finding\[\] (visual only) | **yes** | **L** |
 | 4 | `TriageAgent` | `LlmAgent` | Finding\[\] | Finding\[\] scored \+ ordered | yes | **L** |
 | 5 | `RemediationFanOut` | `ParallelAgent` | Finding\[\] | dispatches one Remediator per finding | no | **L** |
 | 6 | `Remediator` | `LlmAgent` | 1 finding \+ DOM context \+ framework | patch JSON | **yes** | **L** |
 | 7 | `Verifier` | Custom | patched DOM | verified flag \+ violationsAfter | no | **L** |
 
 **L** \= Lewis (pipeline) · **P** \= Partner
+
+**Status: all seven are built and deployed.** Agent 3 was the one open
+handoff; it stayed with Lewis. It is a `BaseAgent` rather than an `LlmAgent`
+because it needs to validate every returned selector against the live DOM
+before a finding is kept, and that check has to sit in code.
 
 ### Detail per agent
 
