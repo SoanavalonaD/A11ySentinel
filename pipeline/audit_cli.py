@@ -90,6 +90,17 @@ async def _main() -> int:
         "--no-screenshot", action="store_true", help="Skip the screenshot capture."
     )
     parser.add_argument(
+        "--remediate",
+        action="store_true",
+        help="Draft patches with Gemini and verify them (stage 2). Needs Vertex AI.",
+    )
+    parser.add_argument(
+        "--remediation-limit",
+        type=int,
+        default=12,
+        help="Cap how many findings are sent to the model. 0 for no cap.",
+    )
+    parser.add_argument(
         "--prospect",
         action="store_true",
         help="Mark trigger as prospect rather than manual.",
@@ -105,6 +116,8 @@ async def _main() -> int:
         trigger=Trigger.PROSPECT if args.prospect else Trigger.MANUAL,
         headless=not args.show_browser,
         screenshot=not args.no_screenshot,
+        remediate=args.remediate,
+        remediation_limit=(args.remediation_limit or None),
     )
 
     print(_summary(result))

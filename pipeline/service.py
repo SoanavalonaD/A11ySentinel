@@ -43,6 +43,10 @@ PERSIST = os.getenv("PERSIST_TO_FIRESTORE", "true").lower() == "true"
 class AuditRequest(BaseModel):
     url: str
     trigger: Trigger = Trigger.MANUAL
+    # Stage 2. Off by default: it costs Vertex AI quota, and stage 1 is
+    # useful on its own.
+    remediate: bool = False
+    remediationLimit: int = 12
 
     @field_validator("url")
     @classmethod
@@ -96,8 +100,12 @@ async def readyz() -> dict[str, Any]:
     return {"status": "ready", **checks}
 
 
-async def _run_and_persist(url: str, trigger: Trigger) -> dict[str, Any]:
-    result = await run_audit(url, trigger=trigger)
+async def _run_and_persist(
+    url: str, trigger: Trigger, *, remediate: bool = False, limit: int = 12
+) -> dict[str, Any]:
+    result = await run_audit(
+        url, trigger=trigger, remediate=remediate, remediation_limit=limit or None
+    )
     payload = result.to_contract_json()
 
     if PERSIST:
@@ -126,7 +134,12 @@ async def _run_and_persist(url: str, trigger: Trigger) -> dict[str, Any]:
 
 @app.post("/audit")
 async def audit(request: AuditRequest) -> dict[str, Any]:
-    return await _run_and_persist(request.url, request.trigger)
+    return await _run_and_persist(
+        request.url,
+        request.trigger,
+        remediate=request.remediate,
+        limit=request.remediationLimit,
+    )
 
 
 @app.post("/pubsub")
@@ -153,4 +166,9 @@ async def pubsub(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=204, detail="missing or invalid url")
 
     trigger = Trigger(decoded.get("trigger", "manual"))
-    return await _run_and_persist(url, trigger)
+    return await _run_and_persist(
+        url,
+        trigger,
+        remediate=bool(decoded.get("remediate", False)),
+        limit=int(decoded.get("remediationLimit", 12)),
+    )

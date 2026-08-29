@@ -192,6 +192,18 @@ class Finding(BaseModel):
         Raises UnverifiedFindingError if any contract invariant fails. Call
         this immediately before every write; do not filter silently.
         """
+        # Pydantic validates at construction, not on assignment. mark_patched,
+        # mark_verified and any direct field write therefore bypass every
+        # validator above. Re-running them here means the write gate sees the
+        # object as it actually is, not as it was when it was built. A live
+        # Gemini response returning confidence 5.0 is what surfaced this.
+        try:
+            type(self).model_validate(self.model_dump())
+        except Exception as exc:  # noqa: BLE001
+            raise UnverifiedFindingError(
+                f"{self.findingId}: failed revalidation before write — {exc}"
+            ) from exc
+
         if self.status is FindingStatus.PATCHED:
             raise UnverifiedFindingError(
                 f"{self.findingId}: status is 'patched' — a fix was drafted but "

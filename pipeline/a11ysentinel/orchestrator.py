@@ -55,6 +55,8 @@ async def run_audit(
     trigger: Trigger = Trigger.MANUAL,
     headless: bool = True,
     screenshot: bool = True,
+    remediate: bool = False,
+    remediation_limit: int | None = 12,
 ) -> AuditResult:
     """Single-page Stage 1 audit, end to end.
 
@@ -103,9 +105,23 @@ async def run_audit(
 
             findings = rule_auditor.fallback_triage(findings)
 
-            # Agent 7. With no Remediator yet there are no patches, so
-            # violationsAfter equals violationsBefore. We report that plainly
-            # rather than inventing a delta.
+            # Agents 5 and 6. Off by default so stage 1 stays model-free and
+            # runs with no Vertex AI quota. Findings beyond the cap stay at
+            # `detected` and are reported as such, not quietly dropped.
+            if remediate and findings:
+                from . import remediator
+
+                report = await remediator.remediate_all(
+                    findings, limit=remediation_limit
+                )
+                result.discards.extend(
+                    f"{o.finding.findingId} ({o.finding.category}): {o.reason}"
+                    for o in report.rejected
+                    if o.reason
+                )
+
+            # Agent 7. With no patches this reports before == after, which is
+            # the honest stage 1 result rather than an invented delta.
             verification = await verifier.verify_patches(
                 browser,
                 page_url=page_capture.url,
