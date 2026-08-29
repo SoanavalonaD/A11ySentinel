@@ -1,0 +1,22 @@
+# A11ySentinel pipeline — Lewis
+# Judges check that a fresh clone spins up. Keep this current.
+
+# Agent framework
+google-adk>=1.0.0
+
+# Google Cloud
+google-cloud-firestore>=2.16.0
+google-cloud-storage>=2.16.0
+google-cloud-pubsub>=2.21.0
+google-genai>=0.3.0
+
+# Browser + rule engine driver
+playwright>=1.44.0
+
+# Runtime
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+
+# Service
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
