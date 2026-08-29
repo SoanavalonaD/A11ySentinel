@@ -16,13 +16,14 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from a11ysentinel import capture as capture_mod
 from a11ysentinel import prospector, store
@@ -42,6 +43,9 @@ app = FastAPI(
 
 PERSIST = os.getenv("PERSIST_TO_FIRESTORE", "true").lower() == "true"
 
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("a11ysentinel")
+
 # The demo target, served from our own service.
 #
 # Outreach guard 3 requires the video to run against a domain we control.
@@ -57,6 +61,12 @@ if _DEMO_DIR.is_dir():
 
 
 class AuditRequest(BaseModel):
+    # Reject unknown fields instead of ignoring them. Pydantic's default is
+    # to drop them silently, which meant a request to a stale revision
+    # asking for a feature it did not have looked identical to one where
+    # the feature ran and found nothing. A 422 says which it was.
+    model_config = ConfigDict(extra="forbid")
+
     url: str
     trigger: Trigger = Trigger.MANUAL
     # Stage 2. Off by default: it costs Vertex AI quota, and stage 1 is
@@ -137,6 +147,15 @@ async def _run_and_persist(
     )
     payload = result.to_contract_json()
 
+    # Every reason a candidate was dropped, returned and logged.
+    # The modules collect these precisely so they are not silence, and
+    # throwing them away at the API boundary undid that: a visual audit
+    # that failed in production looked identical to one that found
+    # nothing.
+    payload["notes"] = result.discards
+    for note in result.discards:
+        log.info("audit %s: %s", result.audit.auditId, note)
+
     if PERSIST:
         try:
             report = store.persist(result.audit, result.findings)
@@ -209,6 +228,8 @@ async def pubsub(request: Request) -> dict[str, Any]:
 
 class ProspectRequest(BaseModel):
     """Nothing here names a target. That is the point."""
+
+    model_config = ConfigDict(extra="forbid")
 
     remediate: bool = True
     remediationLimit: int = 12
