@@ -55,6 +55,22 @@ class EmailStatus(str, Enum):
     SENT = "sent"
 
 
+class FindingStatus(str, Enum):
+    """Where a finding sits in its lifecycle.
+
+    `verified` the boolean is about a patch. `status` is about the finding.
+    Keeping them separate is what lets Stage 1 report real violations without
+    ever implying a fix was checked.
+    """
+
+    # A real violation, no fix drafted. Safe to show as a finding.
+    DETECTED = "detected"
+    # A fix exists but has not survived verification. Never shown, never served.
+    PATCHED = "patched"
+    # Fix applied, axe re-run, original gone, nothing new. Safe to show as a fix.
+    VERIFIED = "verified"
+
+
 # Ordering used by the fallback triage sort, so agent 4 can ship as a plain
 # sort if we run out of time on Sunday.
 SEVERITY_ORDER: dict[Severity, int] = {
@@ -95,6 +111,7 @@ class Finding(BaseModel):
     humanGuidance: str | None = None
     framework: Framework = Framework.UNKNOWN
     confidence: float = Field(ge=0.0, le=1.0)
+    status: FindingStatus = FindingStatus.DETECTED
     verified: bool = False
     triageRank: int | None = None
     screenshotRef: str | None = None
@@ -120,16 +137,67 @@ class Finding(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _status_matches_patch_state(self) -> Finding:
+        """Keep status, patchedCode and verified from drifting apart.
+
+        The web layer branches on `status`. If it disagrees with the actual
+        patch state we would show a fix that was never checked, which is the
+        one failure mode this whole design exists to prevent.
+        """
+        if self.status is FindingStatus.DETECTED:
+            if self.patchedCode is not None:
+                raise ValueError(
+                    f"{self.findingId}: status is 'detected' but patchedCode is "
+                    "set. Move it to 'patched' once a fix is drafted."
+                )
+            if self.verified:
+                raise ValueError(
+                    f"{self.findingId}: status is 'detected' but verified is "
+                    "true. Nothing has been verified — there is no patch."
+                )
+        else:
+            if self.patchedCode is None:
+                raise ValueError(
+                    f"{self.findingId}: status is {self.status.value!r} but "
+                    "patchedCode is null. Only 'detected' may lack a patch."
+                )
+
+        if self.verified is not (self.status is FindingStatus.VERIFIED):
+            raise ValueError(
+                f"{self.findingId}: verified={self.verified} contradicts "
+                f"status={self.status.value!r}. Only the Verifier sets either."
+            )
+        return self
+
+    def mark_patched(self, patched_code: str, change_summary: str | None = None) -> None:
+        """Attach a drafted fix. Does not make any claim about it working."""
+        self.patchedCode = patched_code
+        self.changeSummary = change_summary
+        self.status = FindingStatus.PATCHED
+        self.verified = False
+
+    def mark_verified(self) -> None:
+        """Only the Verifier may call this, and only after re-running axe."""
+        if self.patchedCode is None:
+            raise UnverifiedFindingError(
+                f"{self.findingId}: cannot verify a finding with no patch."
+            )
+        self.status = FindingStatus.VERIFIED
+        self.verified = True
+
     def validate_for_write(self, min_confidence: float = DEFAULT_MIN_CONFIDENCE) -> None:
         """The gate between a candidate finding and Firestore.
 
         Raises UnverifiedFindingError if any contract invariant fails. Call
         this immediately before every write; do not filter silently.
         """
-        if not self.verified:
+        if self.status is FindingStatus.PATCHED:
             raise UnverifiedFindingError(
-                f"{self.findingId}: verified is false. Hard rule 3 — nothing "
-                "unverified reaches the proxy or the report."
+                f"{self.findingId}: status is 'patched' — a fix was drafted but "
+                "did not survive verification. Hard rule 3: an unverified fix "
+                "never reaches the proxy or the report. Either verify it or "
+                "drop the patch back to 'detected'."
             )
         if self.confidence < min_confidence:
             raise UnverifiedFindingError(

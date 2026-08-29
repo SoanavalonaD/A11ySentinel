@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from playwright.async_api import Browser
 
 from . import rule_auditor
-from .models import Finding
+from .models import Finding, FindingStatus
 
 
 @dataclass
@@ -122,9 +122,10 @@ async def verify_patches(
                     (finding, f"patch set introduced new violations: {', '.join(rules)}")
                 )
                 continue
-            finding.verified = True
+            # Only here, and only after both checks passed.
+            finding.mark_verified()
 
-        verified = [f for f in applied if f.verified]
+        verified = [f for f in applied if f.status is FindingStatus.VERIFIED]
 
         return VerificationResult(
             violations_before=violations_before,

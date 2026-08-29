@@ -18,6 +18,10 @@ from a11ysentinel.models import Trigger
 from a11ysentinel.orchestrator import run_audit
 
 
+def _count(result, status: str) -> int:
+    return sum(1 for f in result.findings if f.status.value == status)
+
+
 def _summary(result) -> str:
     a = result.audit
     lines = [
@@ -36,8 +40,16 @@ def _summary(result) -> str:
         f"  violations after    "
         f"{a.violationsAfter if a.violationsAfter is not None else 'pending'}",
         "",
-        f"  findings drafted    {len(result.findings)}",
+        f"  findings            {len(result.findings)}",
         f"  candidates dropped  {len(result.discards)}",
+        "",
+        "  by lifecycle state:",
+        f"    detected  {_count(result, 'detected')}"
+        "   (real violation, no fix drafted)",
+        f"    patched   {_count(result, 'patched')}"
+        "   (fix drafted, not yet verified - never shown)",
+        f"    verified  {_count(result, 'verified')}"
+        "   (fix applied and re-checked with axe)",
         "=" * 62,
     ]
 

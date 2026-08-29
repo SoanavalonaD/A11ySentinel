@@ -16,7 +16,7 @@ from pathlib import Path
 from playwright.async_api import Page
 
 from . import wcag_rgaa
-from .models import Finding, Framework, Source
+from .models import Finding, FindingStatus, Framework, Source
 
 # Vendored rather than fetched from a CDN at runtime: Cloud Run should not
 # depend on jsdelivr being up mid-demo, and pinning the file pins the rule
@@ -162,6 +162,9 @@ async def normalise(
                     framework=framework,
                     # Deterministic engine. Not a guess.
                     confidence=1.0,
+                    # A real violation with no fix drafted. This is the
+                    # honest stage 1 state: reportable, but claiming nothing.
+                    status=FindingStatus.DETECTED,
                     verified=False,
                     triageRank=None,
                     screenshotRef=screenshot_ref,
