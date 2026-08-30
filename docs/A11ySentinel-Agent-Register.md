@@ -3,15 +3,16 @@
 Three different things in this project get called "agent". Keeping them separate stops the confusion.
 
 - **Services** — Cloud Run deployments. Infrastructure, not agents.  
-- **Agents** — ADK constructs inside the orchestrator. Eight of them.  
+- **Agents** — ADK constructs inside the orchestrator. Nine of them, numbered 0 to 8.  
 - **Tools** — plain Python functions agents call. Not agents.
 
 ---
 
-## The 8 ADK Agents
+## The 9 ADK Agents
 
 | \# | Agent | ADK type | Input | Output | Gemini | Owner |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
+| 0 | `ProspectScout` | `LlmAgent` \+ Google Search | region \+ sectors | candidate homepages \+ the searches run | **yes** | **L** |
 | 1 | `RootOrchestrator` | `SequentialAgent` | audit job message | completed audit record | no | **L** |
 | 2 | `RuleAuditor` | Custom | DOM snapshot | axe violations → Finding\[\] | no | **L** |
 | 3 | `VisualAuditor` | Custom (multimodal) | screenshot \+ trimmed DOM \+ axe findings | Finding\[\] (visual only) | **yes** | **L** |
@@ -27,6 +28,12 @@ Three different things in this project get called "agent". Keeping them separate
 open handoff; it stayed with Lewis. It is a `BaseAgent` rather than an
 `LlmAgent` because it needs to validate every returned selector against the
 live DOM before a finding is kept, and that check has to sit in code.
+
+**Agent 0 was added last but numbered first**, because it runs before the
+pipeline rather than inside it: every other agent needs a target, and this is
+the one that produces one. Until it existed the prospector chose autonomously
+from `PROSPECT_POOL` — a list somebody wrote by hand, so the decision was the
+agent's but the world it decided about was ours.
 
 **Agent 8 was added after the original seven.** The outreach email had been a
 template literal in the web layer — every recipient got identical prose with
@@ -50,6 +57,15 @@ normal outcome that falls back to the static template.
 **6\. Remediator** — One instance per finding. Generates the diff. Sets `requiresHumanInput: true` rather than inventing alt text. Prompt is written.
 
 **7\. Verifier** — Applies each patch to the DOM snapshot, re-runs axe, confirms the violation is gone and nothing new appeared. Sets `verified`. **Nothing unverified reaches the proxy or the report.** This produces the 47 → 6 number that is the centrepiece of the demo.
+
+**0\. ProspectScout** — Searches for sites worth auditing, grounded in Google Search through Vertex, and streams them into the dashboard over SSE as they are found and checked.
+
+Two rules shape it, and both are about not trusting the model further than it can be checked:
+
+- **It proposes; the rule engine disposes.** A URL from the scout is a suggestion. It reaches an operator only after robots.txt, a real page load and an axe run, so an invented domain simply fails to load and never appears. The dashboard shows this ordering honestly: a card reads "checking…" with its audit button disabled until a count exists.
+- **It never writes the reason.** It returns facts — organisation, sector, country — and the context line is composed in code from fixed wording: *"Public-sector body in FR. WCAG 2.1 AA is what we measure; RGAA 4 is the framework usually referenced for this sector. Context, not a determination of what binds them."* Asked in prose to explain why a site *must* be accessible, a model will eventually write that someone is legally required to comply. `jurisdiction.py` returns null rather than guess about far less.
+
+Search grounding and a response schema cannot both be set on one Vertex call, so this is the only agent whose output shape is requested rather than enforced — `tests/test_scout_validation.py` is where that is made up for.
 
 **8\. OutreachDrafter** — Writes the narrative part of the audit email: an opening, up to three consequence sentences grounded in specific findings, and a closing. Runs last, on the settled result, so it can only describe findings that survived verification.
 
@@ -75,6 +91,7 @@ Build in this sequence. Each stage is demoable on its own, so if you run out of 
 | 3 | \+ 3 | Multimodal findings axe cannot catch |
 | 4 | \+ 4, 5 | Prioritised output, true parallelism |
 | 5 | \+ 8 | Outreach email drafted from the findings, behind the approval gate |
+| 6 | \+ 0 | The agent finds its own targets — no pool, no typed URL |
 
 Stage 1 is your floor. If everything else fails, you still have a deployed agent producing verifiable numbers on Google Cloud.
 

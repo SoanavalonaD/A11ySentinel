@@ -15,6 +15,7 @@ import { HumanGuidanceModal } from './components/HumanGuidanceModal';
 import { RemediationReport } from './components/RemediationReport';
 import { EmailApprovalModal } from './components/EmailApprovalModal';
 import { AgentAuditLogs } from './components/AgentAuditLogs';
+import { ProspectScout } from './components/ProspectScout';
 
 import { ShieldCheck, Layers, AlertCircle, FileCheck2, Code2 } from 'lucide-react';
 
@@ -278,6 +279,16 @@ export const App: React.FC = () => {
 
       </main>
       )}
+
+      {/* Agent 0 — collapsed to a rail until someone opens it. Discovery costs
+          a grounded search plus a page load per candidate, so it does not run
+          on page load. */}
+      <ProspectScout
+        onAudit={(url) =>
+          handleRunAudit({ url, visual: true, remediate: true, modelTriage: true })
+        }
+        isAuditing={isLoading}
+      />
 
       {/* Human Guidance Modal */}
       <HumanGuidanceModal

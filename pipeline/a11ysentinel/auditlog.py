@@ -21,8 +21,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
 
-# Mirrors AgentName in the web schema. The eight agents, no more.
+# Mirrors AgentName in the web schema. ProspectScout is agent 0 — it runs
+# before the pipeline, producing the target the rest of them need.
 AgentName = Literal[
+    "ProspectScout",
     "RootOrchestrator",
     "RuleAuditor",
     "VisualAuditor",

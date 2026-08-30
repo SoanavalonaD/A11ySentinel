@@ -26,11 +26,12 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from a11ysentinel import capture as capture_mod
-from a11ysentinel import prospector, store
+from a11ysentinel import prospector, scout, store
 from a11ysentinel.models import Trigger
 from a11ysentinel.orchestrator import run_audit
 from a11ysentinel.rule_auditor import AXE_PATH
@@ -353,6 +354,92 @@ async def prospect(request: ProspectRequest) -> dict[str, Any]:
         ],
     }
     return payload
+
+
+@app.get("/prospect/scout")
+async def prospect_scout(
+    region: str | None = None,
+    sectors: str | None = None,
+    count: int = 8,
+) -> StreamingResponse:
+    """Agent 0, streamed. Candidates arrive as they are found and checked.
+
+    Server-sent events rather than one JSON response because the two halves
+    have very different latencies: the grounded search takes around twenty
+    seconds and returns everything at once, then each candidate needs its own
+    page load and axe run. Batching all of that into a single response means
+    the dashboard shows a spinner for a minute and then a list. Streaming lets
+    the list appear the moment the search returns and fill in its numbers one
+    at a time, which is also the honest picture of what the agent is doing.
+
+    Three event types:
+
+      search     the queries the model actually ran
+      candidate  one proposed site, before it has been checked
+      scanned    the same site, with a violation count or the reason it was
+                 skipped — a proposal that fails here never becomes a target
+
+    Errors arrive as an `error` event rather than an HTTP status, because by
+    the time one happens the response has already begun.
+    """
+
+    async def events():
+        def sse(event: str, payload: dict) -> str:
+            return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+
+        try:
+            result = await scout.discover(
+                region=region, sectors=sectors, count=count
+            )
+        except Exception as exc:  # noqa: BLE001
+            yield sse("error", {"reason": f"{type(exc).__name__}: {exc}"})
+            return
+
+        yield sse(
+            "search",
+            {
+                "queries": result.queries,
+                "modelUsed": result.model_used,
+                "reason": result.reason,
+                "discards": result.discards,
+            },
+        )
+
+        if not result.prospects:
+            yield sse("done", {"found": 0, "scanned": 0})
+            return
+
+        # Everything the scout proposed, immediately. The operator sees the
+        # shortlist while the checking is still happening.
+        for p in result.prospects:
+            yield sse("candidate", p.to_contract())
+
+        scanned = 0
+        try:
+            async with capture_mod.BrowserSession() as browser:
+                for p in result.prospects:
+                    candidate = await prospector.scan_candidate(browser, p.url)
+                    scanned += 1
+                    yield sse(
+                        "scanned",
+                        {
+                            "url": p.url,
+                            "violations": candidate.violations,
+                            "skipped": candidate.skipped,
+                        },
+                    )
+        except Exception as exc:  # noqa: BLE001
+            # A browser failure costs the counts, not the shortlist: the
+            # candidates already emitted stay on screen as proposals.
+            yield sse("error", {"reason": f"scanning stopped: {type(exc).__name__}: {exc}"})
+
+        yield sse("done", {"found": len(result.prospects), "scanned": scanned})
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # The built dashboard, served from this same service.

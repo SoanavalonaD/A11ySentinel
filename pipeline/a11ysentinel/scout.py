@@ -1,4 +1,4 @@
-"""Agent 9 — ProspectScout. Finds candidate sites instead of being handed them.
+"""Agent 0 — ProspectScout. Finds candidate sites instead of being handed them.
 
 The prospector could already choose autonomously, but only from `PROSPECT_POOL`
 — a list somebody wrote by hand. The decision was the agent's; the world it
@@ -23,6 +23,9 @@ they are in, and `jurisdiction.py` returns null rather than guess about far
 less. Naming the framework usually referenced for a sector is a cross-reference.
 Asserting an obligation is a legal opinion. Composing the sentence in code is
 what keeps the difference from eroding.
+
+Numbered 0 because it runs before the pipeline rather than inside it: every
+other agent needs a target, and this is the one that produces one.
 
 Grounded in Google Search through Vertex, so the candidates are sites that
 exist today rather than sites the model remembers.
