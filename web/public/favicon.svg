@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="A11ySentinel">
+  <title>A11ySentinel</title>
+  <!--
+    Tab icon. One file rather than two, because a favicon is rendered outside
+    the document and cannot see the app's data-theme attribute — it only gets
+    prefers-color-scheme from the browser. So the switch has to live inside the
+    SVG itself.
+
+    Consequence worth knowing: the tab follows the operating system, while the
+    in-app mark follows the toggle. Someone running a dark OS who switches the
+    app to light gets a dark tab icon and a red in-page mark. There is no way
+    to reach a favicon from page state; this is the closest correct behaviour.
+
+    Geometry matches src/assets/mark-*.svg exactly.
+  -->
+  <style>
+    .shell { stroke: #a51f1d; }
+    .slot  { stroke: #dc322f; }
+    @media (prefers-color-scheme: dark) {
+      .shell { stroke: #e4ecfb; }
+      .slot  { stroke: #6688cc; }
+    }
+  </style>
+  <g fill="none" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path class="shell" d="M12 18V13l20-6 20 6v5" />
+    <path class="shell" d="M12 35c0 11 8.5 18.5 20 22 11.5-3.5 20-11 20-22" />
+    <path class="slot" d="M19 23h26v7H19z" />
+  </g>
+</svg>

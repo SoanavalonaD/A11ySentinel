@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sun, Moon, FileText, Cpu, ExternalLink, Globe } from 'lucide-react';
-import logoImg from '../assets/logo.png';
+import markLight from '../assets/mark-light.svg';
+import markDark from '../assets/mark-dark.svg';
 
 interface NavbarProps {
   onLoadFixture: (fixtureName: 'sample' | 'demo') => void;
@@ -58,8 +59,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Row 1 — brand and actions. Wraps as whole items rather than overflowing. */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 min-h-[66px] py-2">
           <div className="flex items-center gap-3 flex-[1_1_300px] min-w-0">
-            <span className="w-[36px] h-[36px] shrink-0 grid place-items-center bg-sunk rounded overflow-hidden">
-              <img src={logoImg} alt="A11ySentinel Logo" className="w-full h-full object-contain" />
+            {/* The wordmark beside this already names the product, so the mark
+                is decorative and alt="" stops a screen reader announcing it
+                twice. Swapped on theme rather than recoloured, so each variant
+                keeps its own tuned pair of stroke colours. The tile background
+                is gone: the mark is a stroke drawing and reads better on the
+                bar itself than boxed. */}
+            <span className="w-[36px] h-[36px] shrink-0 grid place-items-center">
+              <img
+                src={theme === 'dark' ? markDark : markLight}
+                alt=""
+                width={36}
+                height={36}
+                className="w-full h-full object-contain"
+              />
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">

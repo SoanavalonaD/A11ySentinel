@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Audit, EmailStatus, Finding, FindingSeverity, FindingSource } from './types/schema';
 import { SAMPLE_FIXTURE, DEMO_SITE_FIXTURE } from './data/sampleFixture';
 import { runAuditApi, AuditRequestError, AuditRequestPayload } from './services/api';
-import logoImg from './assets/logo.png';
+import markLight from './assets/mark-light.svg';
+import markDark from './assets/mark-dark.svg';
 
 import { Navbar } from './components/Navbar';
 import { AuditForm } from './components/AuditForm';
@@ -301,7 +302,11 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-line2 bg-panel py-8 px-6 text-center text-[12px] text-bodyp space-y-2 print-hide">
         <div className="flex items-center justify-center gap-2 font-semibold text-head">
-          <img src={logoImg} alt="A11ySentinel Logo" className="w-5 h-5 object-contain" />
+          {/* No theme state down here, but tailwind.config.js maps `dark:` to
+              [data-theme="dark"], so CSS can do the swap without prop drilling.
+              Decorative — the product name follows immediately. */}
+          <img src={markLight} alt="" className="w-5 h-5 object-contain dark:hidden" />
+          <img src={markDark} alt="" className="w-5 h-5 object-contain hidden dark:block" />
           <span>A11ySentinel — Google Cloud All Things Agentic Hackathon</span>
         </div>
         <p>

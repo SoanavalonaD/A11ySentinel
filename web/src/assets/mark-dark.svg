@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512" role="img" aria-label="A11ySentinel">
+  <title>A11ySentinel</title>
+  <!--
+    Dark-mode mark. Geometry is identical to mark-light.svg so the two are
+    interchangeable at the same optical weight; only the two stroke colours
+    differ. See mark-light.svg for why the numbers are what they are.
+  -->
+  <g fill="none" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="#e4ecfb" d="M12 18V13l20-6 20 6v5" />
+    <path stroke="#e4ecfb" d="M12 35c0 11 8.5 18.5 20 22 11.5-3.5 20-11 20-22" />
+    <path stroke="#6688cc" d="M19 23h26v7H19z" />
+  </g>
+</svg>

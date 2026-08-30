@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512" role="img" aria-label="A11ySentinel">
+  <title>A11ySentinel</title>
+  <!--
+    Light-mode mark. Geometry notes, since the numbers are deliberate:
+
+    Optical centring — with a 3.6 stroke every path grows by 1.8 on each side,
+    so the drawn bounds are not the path bounds. Apex y=7 and base y=57 give
+    5.2 to 58.8, centred on 32. Sides x=12 and x=52 give 10.2 to 53.8, also
+    centred on 32.
+
+    The gap — the shield is two paths, not one, and the bar sits in the break.
+    Top ends at y=18 (drawn edge 19.8), base starts at y=35 (drawn edge 33.2),
+    leaving a 13.4 gap centred on 26.5. The bar spans y=23 to 30, drawn 21.2
+    to 31.8, also centred on 26.5, with 1.4 clearance top and bottom. In the
+    original the bar sat 1.5 low and its stroke collided with the base curve.
+
+    Round caps and joins rather than square: at favicon size a mitred apex on
+    a shallow angle spikes past the intended bounds.
+  -->
+  <g fill="none" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="#a51f1d" d="M12 18V13l20-6 20 6v5" />
+    <path stroke="#a51f1d" d="M12 35c0 11 8.5 18.5 20 22 11.5-3.5 20-11 20-22" />
+    <path stroke="#dc322f" d="M19 23h26v7H19z" />
+  </g>
+</svg>
