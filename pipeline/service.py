@@ -7,6 +7,9 @@ Endpoints:
     POST /audit            run an audit synchronously
     POST /pubsub           Pub/Sub push subscription entrypoint
 
+CORS is restricted to the dashboard origins in ALLOWED_ORIGINS; a browser on
+any other origin is refused at the preflight.
+
 Kept synchronous for now. Multi-page fan-out moves the work to a Cloud Run Job
 behind Pub/Sub; the audit logic does not change, only who calls it.
 """
@@ -22,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -39,6 +43,36 @@ app = FastAPI(
         "This service does not make a site compliant."
     ),
     version="0.1.0",
+)
+
+# The dashboard is a browser app on a different origin, so without this the
+# preflight OPTIONS gets a 405 with no Access-Control-Allow-Origin and every
+# audit request dies before it reaches the service. The dashboard could not
+# tell that apart from a network outage, which is how it ended up answering
+# with fabricated results instead.
+#
+# Explicit origins rather than "*": this endpoint launches a browser against a
+# URL the caller chooses, so it should not be callable from any page a person
+# happens to be visiting. Add deployed dashboard origins via ALLOWED_ORIGINS,
+# comma-separated.
+_DEFAULT_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", ",".join(_DEFAULT_ORIGINS)).split(",")
+    if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 
 PERSIST = os.getenv("PERSIST_TO_FIRESTORE", "true").lower() == "true"

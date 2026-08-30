@@ -201,7 +201,15 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({
         </div>
       )}
 
-      {/* Metric grid — cells split by 1px --line */}
+      {/*
+        Metric grid — cells split by 1px --line.
+
+        Hidden entirely on a failed audit. A failure leaves violationsBefore at
+        0 and violationsAfter null, which renders as "0 → 0, −0% violations" —
+        indistinguishable from having measured a clean site. Nothing was
+        measured, so nothing is shown.
+      */}
+      {!failed && (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line">
         <Metric label="Measured axe-core Violations" note={`${fixedCount} violations resolved`}>
           <div className="flex items-baseline gap-3 flex-wrap">
@@ -249,6 +257,7 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({
           </span>
         </Metric>
       </div>
+      )}
 
       <div className="bg-sunk border-t border-line2 px-6 py-3 flex items-start gap-2 text-[12px] text-bodyp">
         <ShieldAlert className="w-4 h-4 text-ccyan shrink-0 mt-0.5" strokeWidth={1.5} />

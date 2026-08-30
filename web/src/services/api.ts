@@ -1,5 +1,4 @@
-import { AuditResultResponse, Finding } from '../types/schema';
-import { SAMPLE_FIXTURE, DEMO_SITE_FIXTURE } from '../data/sampleFixture';
+import { AuditResultResponse } from '../types/schema';
 
 export interface AuditRequestPayload {
   url: string;
@@ -13,20 +12,43 @@ export interface AuditRequestPayload {
 const API_BASE_URL = 'https://a11ysentinel-pipeline-708226575684.us-central1.run.app';
 
 /**
- * Triggers an audit execution against the Cloud Run pipeline endpoint
+ * A request that did not produce an audit. Carries why, so the dashboard can
+ * say what happened instead of guessing.
+ */
+export class AuditRequestError extends Error {
+  readonly status: number | null;
+
+  constructor(message: string, status: number | null = null) {
+    super(message);
+    this.name = 'AuditRequestError';
+    this.status = status;
+  }
+}
+
+/**
+ * Runs an audit against the pipeline.
+ *
+ * **This never invents a result.** It used to: every failure — an unreachable
+ * backend, a CORS-blocked preflight, an HTTP 500, a URL that does not resolve
+ * — was caught and answered with `generateCustomMockResponse()`, a hardcoded
+ * audit reporting `status: 'complete'`, 18 violations reduced to 2, four
+ * fabricated findings and invented agent logs claiming axe-core had run.
+ *
+ * The only thing that varied with the URL was the URL echoed back, so every
+ * audit produced the same confident numbers whatever was typed, including for
+ * addresses that do not exist. On a tool whose entire premise is that it
+ * reports measurements rather than claims, a fabricated measurement is the
+ * one output it must never produce.
+ *
+ * A failure now throws. The caller renders it as a failed audit.
  */
 export async function runAuditApi(payload: AuditRequestPayload): Promise<AuditResultResponse> {
-  // Preset demo site check
-  if (payload.url.includes('antsahabe') || payload.url.includes('demo/index.html')) {
-    return simulateAuditFlow(DEMO_SITE_FIXTURE);
-  }
+  let response: Response;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/audit`, {
+    response = await fetch(`${API_BASE_URL}/audit`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: payload.url,
         trigger: payload.trigger || 'manual',
@@ -37,222 +59,44 @@ export async function runAuditApi(payload: AuditRequestPayload): Promise<AuditRe
         draftEmail: payload.draftEmail ?? true,
       }),
     });
-
-    if (response.ok) {
-      const data = await response.json();
-      return data as AuditResultResponse;
-    }
-    console.warn(`Backend returned HTTP ${response.status}. Generating dynamic audit for target URL: ${payload.url}`);
-  } catch (error: any) {
-    console.warn(`Backend unreachable (${error?.message}). Generating dynamic audit for target URL: ${payload.url}`);
+  } catch (error) {
+    // fetch() rejects for network failures and for a blocked CORS preflight,
+    // and the browser deliberately does not say which. Name both.
+    throw new AuditRequestError(
+      `Could not reach the pipeline at ${API_BASE_URL}. The service may be ` +
+        `down, or the browser may have blocked the request because the ` +
+        `service did not allow this origin (CORS). ` +
+        `${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
-  // Fallback: Return dynamically generated audit data tailored to payload.url
-  return simulateAuditFlow(generateCustomMockResponse(payload.url));
-}
+  if (!response.ok) {
+    // The pipeline reports a bad target as a 4xx and its own trouble as a 5xx.
+    // Surface its explanation rather than a generic failure.
+    let detail = '';
+    try {
+      const body = await response.json();
+      detail = typeof body?.detail === 'string' ? body.detail : JSON.stringify(body?.detail ?? '');
+    } catch {
+      detail = await response.text().catch(() => '');
+    }
 
-async function simulateAuditFlow(fixture: AuditResultResponse): Promise<AuditResultResponse> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(fixture), 600);
-  });
-}
+    throw new AuditRequestError(
+      `The pipeline refused the audit (HTTP ${response.status})` +
+        `${detail ? `: ${detail}` : '.'}`,
+      response.status,
+    );
+  }
 
-function generateCustomMockResponse(targetUrl: string): AuditResultResponse {
-  const auditId = `aud_${Math.random().toString(16).substring(2, 8)}`;
-  const now = new Date().toISOString();
-  
-  return {
-    audit: {
-      auditId,
-      targetUrl,
-      trigger: 'manual',
-      status: 'complete',
-      createdAt: now,
-      completedAt: new Date(Date.now() + 180000).toISOString(),
-      pageCount: 3,
-      violationsBefore: 18,
-      violationsAfter: 2,
-      proxyUrl: `/proxy/${auditId}`,
-      emailStatus: 'draft',
-      error: null,
-    },
-    findings: [
-      {
-        findingId: `f_${auditId}_01`,
-        pageUrl: targetUrl,
-        source: 'axe',
-        category: 'button-name',
-        wcagCriterion: '4.1.2',
-        regionalFramework: 'RGAA 4',
-        regionalCriterion: '7.1',
-        severity: 'critical',
-        userImpact: 'Someone using a screen reader hears only "button" with no indication of its purpose or action.',
-        evidence: null,
-        selector: 'button.submit-btn',
-        xpath: '/html/body/main/form/button[1]',
-        currentCode: '<button class="submit-btn"><svg class="icon"></svg></button>',
-        patchedCode: '<button class="submit-btn" aria-label="Submit form"><svg class="icon" aria-hidden="true"></svg></button>',
-        changeSummary: 'Added aria-label and aria-hidden to decorative SVG.',
-        requiresHumanInput: false,
-        humanGuidance: null,
-        framework: 'html',
-        confidence: 0.98,
-        status: 'verified',
-        verified: true,
-        triageRank: 1,
-        screenshotRef: null,
-        announcedBefore: 'button: (nothing announced)',
-        announcedAfter: 'button: "Submit form"'
-      },
-      {
-        findingId: `f_${auditId}_02`,
-        pageUrl: targetUrl,
-        source: 'visual',
-        category: 'MEANINGLESS_LINK_TEXT',
-        wcagCriterion: '2.4.4',
-        regionalFramework: 'RGAA 4',
-        regionalCriterion: '6.1',
-        severity: 'serious',
-        userImpact: 'Link text "learn more" provides no destination context when read out of order by a screen reader.',
-        evidence: 'Gemini 3.7 Flash identified ambiguous "learn more" link in lower hero card.',
-        selector: 'a.more-link',
-        xpath: '/html/body/main/section/a[1]',
-        currentCode: '<a href="/details" class="more-link">learn more</a>',
-        patchedCode: '<a href="/details" class="more-link" aria-label="Learn more about our accessibility commitments">learn more</a>',
-        changeSummary: 'Added descriptive aria-label.',
-        requiresHumanInput: false,
-        humanGuidance: null,
-        framework: 'html',
-        confidence: 0.88,
-        status: 'verified',
-        verified: true,
-        triageRank: 2,
-        screenshotRef: null,
-        announcedBefore: 'link: "learn more"',
-        announcedAfter: 'link: "Learn more about our accessibility commitments"'
-      },
-      {
-        findingId: `f_${auditId}_03`,
-        pageUrl: targetUrl,
-        source: 'axe',
-        category: 'image-alt',
-        wcagCriterion: '1.1.1',
-        regionalFramework: 'RGAA 4',
-        regionalCriterion: '1.3',
-        severity: 'critical',
-        userImpact: 'Screen reader reads raw image filename instead of descriptive alt text.',
-        evidence: null,
-        selector: 'img.banner-img',
-        xpath: '/html/body/header/img',
-        currentCode: '<img src="/assets/hero-banner.png" class="banner-img">',
-        patchedCode: '<img src="/assets/hero-banner.png" class="banner-img" alt="TODO: Describe this header image">',
-        changeSummary: 'Added alt attribute requiring human guidance.',
-        requiresHumanInput: true,
-        humanGuidance: 'Replace generic placeholder with an explicit description of the hero image. If the image is purely decorative, use alt="" instead.',
-        framework: 'html',
-        confidence: 0.95,
-        status: 'verified',
-        verified: true,
-        triageRank: 3,
-        screenshotRef: null,
-        announcedBefore: 'image: "hero-banner.png"',
-        announcedAfter: 'image: "TODO: Describe this header image"'
-      },
-      {
-        findingId: `f_${auditId}_04`,
-        pageUrl: targetUrl,
-        source: 'axe',
-        category: 'color-contrast',
-        wcagCriterion: '1.4.3',
-        regionalFramework: null,
-        regionalCriterion: null,
-        severity: 'serious',
-        userImpact: 'Low contrast ratio detected between text and background.',
-        evidence: null,
-        selector: 'footer p.copyright',
-        xpath: '/html/body/footer/p',
-        currentCode: '<p class="copyright">© 2026 All rights reserved</p>',
-        patchedCode: null,
-        changeSummary: null,
-        requiresHumanInput: false,
-        humanGuidance: null,
-        framework: 'html',
-        confidence: 1.0,
-        status: 'detected',
-        verified: false,
-        triageRank: 4,
-        screenshotRef: null,
-        announcedBefore: null,
-        announcedAfter: null
-      }
-    ],
-    notes: [
-      `VisualAuditor: Completed multimodal inspection for ${targetUrl}. Validated DOM selectors.`,
-      `Remediator: Generated candidate patches anchored by CSS selectors.`,
-      `Verifier: axe-core re-run complete. 0 regressions detected on verified patches.`
-    ],
-    write: {
-      findingsWritten: 3,
-      findingsRejected: []
-    },
-    auditLogs: [
-      {
-        logId: `log_${auditId}_1`,
-        timestamp: now,
-        agentName: 'RootOrchestrator',
-        level: 'info',
-        message: `Session initialised. Starting 7-agent ADK pipeline for ${targetUrl}.`,
-        stage: 'queued'
-      },
-      {
-        logId: `log_${auditId}_2`,
-        timestamp: new Date(Date.now() + 30000).toISOString(),
-        agentName: 'RuleAuditor',
-        level: 'success',
-        message: 'axe-core 4.10.2 deterministic scan complete. 18 violations detected.',
-        details: 'Mapped WCAG 2.1 AA criteria to RGAA 4 equivalents.',
-        stage: 'auditing'
-      },
-      {
-        logId: `log_${auditId}_3`,
-        timestamp: new Date(Date.now() + 60000).toISOString(),
-        agentName: 'VisualAuditor',
-        level: 'info',
-        message: 'Gemini 3.7 Flash multimodal visual audit complete. Verified DOM selectors.',
-        stage: 'auditing'
-      },
-      {
-        logId: `log_${auditId}_4`,
-        timestamp: new Date(Date.now() + 90000).toISOString(),
-        agentName: 'TriageAgent',
-        level: 'info',
-        message: 'Triage agent scored findings by severity and user impact.',
-        stage: 'auditing'
-      },
-      {
-        logId: `log_${auditId}_5`,
-        timestamp: new Date(Date.now() + 120000).toISOString(),
-        agentName: 'RemediationFanOut',
-        level: 'info',
-        message: 'Dispatched parallel remediation tasks with bounded concurrency.',
-        stage: 'remediating'
-      },
-      {
-        logId: `log_${auditId}_6`,
-        timestamp: new Date(Date.now() + 150000).toISOString(),
-        agentName: 'Verifier',
-        level: 'success',
-        message: 'Verified patches re-tested with axe-core. 0 regressions found.',
-        stage: 'verifying'
-      },
-      {
-        logId: `log_${auditId}_7`,
-        timestamp: new Date(Date.now() + 180000).toISOString(),
-        agentName: 'RootOrchestrator',
-        level: 'success',
-        message: 'Audit execution complete. Results written to Firestore.',
-        stage: 'complete'
-      }
-    ]
-  };
+  const data = await response.json();
+
+  // A 200 carrying the wrong shape is still not an audit.
+  if (!data || typeof data !== 'object' || !data.audit || !Array.isArray(data.findings)) {
+    throw new AuditRequestError(
+      'The pipeline returned a response that is not an audit result.',
+      response.status,
+    );
+  }
+
+  return data as AuditResultResponse;
 }

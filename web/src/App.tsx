@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Audit, EmailStatus, Finding, FindingSeverity, FindingSource } from './types/schema';
 import { SAMPLE_FIXTURE, DEMO_SITE_FIXTURE } from './data/sampleFixture';
-import { runAuditApi, AuditRequestPayload } from './services/api';
+import { runAuditApi, AuditRequestError, AuditRequestPayload } from './services/api';
 import logoImg from './assets/logo.png';
 
 import { Navbar } from './components/Navbar';
@@ -83,37 +83,54 @@ export const App: React.FC = () => {
     setActiveAudit(newAudit);
     setActiveFixtureName('custom');
 
-    // Simulate progress stages for better UX
-    setTimeout(() => {
-      setActiveAudit(prev => ({ ...prev, status: 'capturing' }));
-    }, 600);
-
-    setTimeout(() => {
-      setActiveAudit(prev => ({ ...prev, status: 'auditing' }));
-    }, 1400);
-
-    setTimeout(() => {
-      setActiveAudit(prev => ({ ...prev, status: 'remediating' }));
-    }, 2200);
-
-    setTimeout(() => {
-      setActiveAudit(prev => ({ ...prev, status: 'verifying' }));
-    }, 3000);
+    // Indicative stage progression while the request is in flight. These are
+    // held so a failure can cancel them — otherwise a timer firing after the
+    // request failed would overwrite the failed state with `verifying` and the
+    // dashboard would sit there looking busy on an audit that already died.
+    //
+    // The real pipeline writes each transition to Firestore as it happens
+    // (contract draft 5), so this should become a poll of the audit document
+    // rather than a guess at the timing.
+    const stageTimers = [
+      setTimeout(() => setActiveAudit(prev => ({ ...prev, status: 'capturing' })), 600),
+      setTimeout(() => setActiveAudit(prev => ({ ...prev, status: 'auditing' })), 1400),
+      setTimeout(() => setActiveAudit(prev => ({ ...prev, status: 'remediating' })), 2200),
+      setTimeout(() => setActiveAudit(prev => ({ ...prev, status: 'verifying' })), 3000),
+    ];
+    const clearStageTimers = () => stageTimers.forEach(clearTimeout);
 
     // Complete audit execution
     try {
       const result = await runAuditApi(payload);
-      setTimeout(() => {
-        setActiveAudit(result.audit);
-        setFindings(result.findings);
-        if (result.notes) setActiveNotes(result.notes);
-        if (result.write) setActiveWrite(result.write);
-        if (result.auditLogs) setActiveLogs(result.auditLogs);
-        setActiveEmailDraft(result.emailDraft ?? undefined);
-        setIsLoading(false);
-      }, 3800);
+      clearStageTimers();
+      setActiveAudit(result.audit);
+      setFindings(result.findings);
+      setActiveNotes(result.notes);
+      setActiveWrite(result.write);
+      setActiveLogs(result.auditLogs);
+      setActiveEmailDraft(result.emailDraft ?? undefined);
+      setIsLoading(false);
     } catch (err) {
+      // Report the failure as a failed audit. Nothing from a previous run is
+      // left on screen to be mistaken for a result for this URL.
+      clearStageTimers();
       console.error('Audit execution error:', err);
+      setActiveAudit({
+        ...newAudit,
+        status: 'failed',
+        completedAt: new Date().toISOString(),
+        error:
+          err instanceof AuditRequestError
+            ? err.message
+            : err instanceof Error
+            ? err.message
+            : String(err),
+      });
+      setFindings([]);
+      setActiveNotes(undefined);
+      setActiveWrite(undefined);
+      setActiveLogs(undefined);
+      setActiveEmailDraft(undefined);
       setIsLoading(false);
     }
   };
