@@ -40,15 +40,77 @@ export async function runAuditApi(payload: AuditRequestPayload): Promise<AuditRe
     });
 
     if (!response.ok) {
-      console.warn(`API returned ${response.status}. Falling back to mock generator.`);
-      return generateCustomMockResponse(payload.url);
+      let errorMsg = `Audit pipeline error (HTTP ${response.status})`;
+      try {
+        const errJson = await response.json();
+        if (errJson.detail) errorMsg = errJson.detail;
+        if (errJson.error) errorMsg = errJson.error;
+      } catch {}
+
+      console.error(`Audit pipeline returned HTTP ${response.status}: ${errorMsg}`);
+      return {
+        audit: {
+          auditId: `aud_${Math.random().toString(16).substring(2, 8)}`,
+          targetUrl: payload.url,
+          trigger: payload.trigger || 'manual',
+          status: 'failed',
+          createdAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          pageCount: 0,
+          violationsBefore: 0,
+          violationsAfter: null,
+          proxyUrl: null,
+          emailStatus: 'draft',
+          error: errorMsg,
+        },
+        findings: [],
+        notes: [`Audit execution failed: ${errorMsg}`],
+        auditLogs: [
+          {
+            logId: `log_err_${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            agentName: 'RootOrchestrator',
+            level: 'error',
+            message: `Audit failed for ${payload.url}: ${errorMsg}`,
+            stage: 'failed',
+          },
+        ],
+      };
     }
 
     const data = await response.json();
     return data as AuditResultResponse;
-  } catch (error) {
-    console.warn('Backend endpoint un-reachable. Using fallback mock response.', error);
-    return generateCustomMockResponse(payload.url);
+  } catch (error: any) {
+    const errorMsg = error?.message || 'Network error or backend unreachable';
+    console.error(`Backend connection failed: ${errorMsg}`);
+    return {
+      audit: {
+        auditId: `aud_${Math.random().toString(16).substring(2, 8)}`,
+        targetUrl: payload.url,
+        trigger: payload.trigger || 'manual',
+        status: 'failed',
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        pageCount: 0,
+        violationsBefore: 0,
+        violationsAfter: null,
+        proxyUrl: null,
+        emailStatus: 'draft',
+        error: errorMsg,
+      },
+      findings: [],
+      notes: [`Connection error: ${errorMsg}`],
+      auditLogs: [
+        {
+          logId: `log_err_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          agentName: 'RootOrchestrator',
+          level: 'error',
+          message: `Network/Backend failure when auditing ${payload.url}: ${errorMsg}`,
+          stage: 'failed',
+        },
+      ],
+    };
   }
 }
 

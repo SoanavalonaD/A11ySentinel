@@ -100,10 +100,7 @@ export const App: React.FC = () => {
     try {
       const result = await runAuditApi(payload);
       setTimeout(() => {
-        setActiveAudit({
-          ...result.audit,
-          status: 'complete'
-        });
+        setActiveAudit(result.audit);
         setFindings(result.findings);
         if (result.notes) setActiveNotes(result.notes);
         if (result.write) setActiveWrite(result.write);
