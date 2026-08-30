@@ -304,6 +304,11 @@ class ProspectRequest(BaseModel):
     remediationLimit: int = 12
     modelTriage: bool = True
     visual: bool = True
+    # On by default here, unlike /audit. Prospecting exists to produce
+    # outreach: the run picks a target nobody asked us to audit, so an email
+    # is the deliverable rather than an extra. It is still only a draft, and
+    # the approval gate in the dashboard is still the only thing that sends.
+    draftEmail: bool = True
 
 
 @app.post("/prospect")
@@ -337,6 +342,7 @@ async def prospect(request: ProspectRequest) -> dict[str, Any]:
         limit=request.remediationLimit,
         triage=request.modelTriage,
         visual=request.visual,
+        draft_email=request.draftEmail,
     )
     payload["selection"] = {
         "chosen": selection.chosen,
