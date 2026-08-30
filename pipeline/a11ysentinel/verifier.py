@@ -207,6 +207,31 @@ async def verify_patches(
             if heard is not None:
                 finding.announcedAfter = heard.render()
 
+            # The contract promises these two are always both set or both
+            # null, because a comparison needs both halves. Enforce it here
+            # rather than hoping, and drop the pair in two cases:
+            #
+            # Unchanged. The fix can still be real — PLACEHOLDER_AS_LABEL adds
+            # a persistent <label>, which helps someone who has already started
+            # typing, but the computed name was coming from the placeholder and
+            # is identical either way. The improvement is genuine; the
+            # accessibility tree is simply not where it shows. Rendering
+            # "before: X / after: X" reads as "nothing happened", which is
+            # worse for the report than showing nothing.
+            #
+            # Half a pair. An element can be readable on one side and not the
+            # other — a patch that replaces an element can change what the tree
+            # exposes. One value with nothing to compare it to is not evidence
+            # of anything.
+            #
+            # Either way the finding keeps its diff, changeSummary and
+            # userImpact; only the announcement row goes.
+            unchanged = finding.announcedBefore == finding.announcedAfter
+            incomplete = not (finding.announcedBefore and finding.announcedAfter)
+            if unchanged or incomplete:
+                finding.announcedBefore = None
+                finding.announcedAfter = None
+
         return VerificationResult(
             violations_before=violations_before,
             violations_after=violations_after,

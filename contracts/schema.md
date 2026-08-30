@@ -122,7 +122,7 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
 | `triageRank` | int or null | 1 = highest priority. Null before triage. |
 | `screenshotRef` | string or null | `gs://` URI. |
 | `announcedBefore` | string or null | What assistive technology announced for this element before the fix. |
-| `announcedAfter` | string or null | What it announces after. Null on both when the element carries no announced role, or when no patch was applied. |
+| `announcedAfter` | string or null | What it announces after. **Always null together with `announcedBefore`** — see below for when. |
 
 ---
 
@@ -216,10 +216,26 @@ a real screen reader, against the actual patched DOM.
 representation of what the tool did, and they carry the point better than a
 code diff does for anyone who does not read HTML.
 
-Null on both when the element carries no announced role — `<html>` has none, so
-an `html-has-lang` fix has no announcement to show. Null means "we could not
-read it", never "nothing changed". Do not render a null as an empty string, and
-do not fill it in.
+**The two fields are always both set or both null.** They are null in three
+cases, and in every one of them the right thing to render is nothing at all:
+
+1. **The element carries no announced role.** `<html>` has none, so an
+   `html-has-lang` fix has no announcement to show.
+2. **No patch was applied** — a `detected` finding has no "after" to compare
+   against, and a rejected patch's "before" is discarded with it.
+3. **The announcement did not change.** The fix can still be real: a
+   `PLACEHOLDER_AS_LABEL` fix adds a persistent `<label>`, which helps someone
+   who has already started typing, but the computed accessible name was
+   coming from the placeholder and is identical either way. The improvement is
+   genuine; the accessibility tree is simply not where it shows.
+
+Case 3 is why the pipeline filters rather than leaving you to. Rendering
+`before: X / after: X` side by side reads as "nothing happened", which is worse
+for the report than showing nothing — the finding still carries its diff, its
+`changeSummary` and its `userImpact`.
+
+So: **if `announcedBefore` is null, skip the announcement row entirely.** Never
+render a null as an empty string, and never fill one in.
 
 ## Invariants the web layer can rely on
 

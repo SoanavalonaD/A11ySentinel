@@ -204,6 +204,12 @@ class Finding(BaseModel):
         self.changeSummary = None
         self.requiresHumanInput = False
         self.humanGuidance = None
+        # The Verifier reads announcedBefore for every candidate before it
+        # applies anything, so a rejected patch leaves a "before" with no
+        # "after". A half pair renders as a broken row, and there is nothing
+        # to compare it against — the patch is gone.
+        self.announcedBefore = None
+        self.announcedAfter = None
         self.status = FindingStatus.DETECTED
         self.verified = False
 

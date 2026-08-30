@@ -41,6 +41,15 @@ anyone who does not read HTML.
 It also means your proxy is no longer the only visual payoff. If B2 slips,
 the demo still works.
 
+**Rendering rule for that pair:** the two fields are **always both set or both
+null**. If `announcedBefore` is null, skip the announcement row entirely — do
+not render an empty string and do not fill one in. The pipeline nulls them when
+the announcement did not change, when only one side was readable, and when no
+patch was applied, so anything you receive is a real difference worth showing.
+A `PLACEHOLDER_AS_LABEL` fix, for instance, is a genuine improvement whose
+computed name does not change — you get nulls there, and the finding still
+carries its diff and its impact.
+
 ---
 
 ## What the pipeline already gives you
