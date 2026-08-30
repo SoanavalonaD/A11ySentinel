@@ -1,5 +1,5 @@
-import React from 'react';
-import { ShieldCheck, Cpu, ExternalLink, Sparkles, CheckCircle2, FileText } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ShieldCheck, Sun, Moon, Sparkles, CheckCircle2, FileText, Cpu, ExternalLink } from 'lucide-react';
 
 interface NavbarProps {
   onLoadFixture: (fixtureName: 'sample' | 'demo') => void;
@@ -8,91 +8,177 @@ interface NavbarProps {
   isReportMode: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onLoadFixture, activeFixture, onOpenReport, isReportMode }) => {
+type Theme = 'light' | 'dark';
+
+const THEME_KEY = 'a11ysentinel-theme';
+
+/**
+ * Resolve the theme the same way the pre-paint script in index.html does:
+ * an explicit stored choice wins, otherwise follow the OS preference.
+ */
+function readInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const stored = window.localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+  } catch {
+    // Private mode, blocked storage — fall through to the OS preference.
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
+  onLoadFixture,
+  activeFixture,
+  onOpenReport,
+  isReportMode,
+}) => {
+  const [theme, setTheme] = useState<Theme>(readInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      window.localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Persisting is a convenience; the theme still applies for this session.
+    }
+  }, [theme]);
+
+  // `onOpenReport` toggles, so only fire it when the target view differs.
+  const goTo = (view: 'dashboard' | 'report') => {
+    if ((view === 'report') !== isReportMode) onOpenReport();
+  };
+
+  const segment = (active: boolean) =>
+    `px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap border transition-colors ${
+      active
+        ? 'bg-fill-blue text-on-fill border-fill-blue'
+        : 'bg-transparent text-bodyp border-line2 hover:text-head'
+    }`;
+
   return (
-    <header className="sticky top-0 z-50 glass-panel border-b border-slate-800/80">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        
-        {/* Logo and Brand */}
-        <div className="flex items-center space-x-3">
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-emerald-500 p-0.5 shadow-lg shadow-indigo-500/20">
-            <div className="w-full h-full bg-[#0a0d14] rounded-[10px] flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+    <header className="sticky top-0 z-50 bg-panel border-b border-line2">
+      <div className="max-w-[1280px] mx-auto px-6">
+        {/* Row 1 — brand and actions. Wraps as whole items rather than overflowing. */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3 min-h-[66px] py-2">
+          <div className="flex items-center gap-3 flex-[1_1_300px] min-w-0">
+            <span className="w-[34px] h-[34px] shrink-0 grid place-items-center bg-sunk border border-line2">
+              <ShieldCheck className="w-5 h-5 text-cblue" strokeWidth={1.5} />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-display font-bold text-[19px] tracking-[0.2px] text-head leading-none">
+                  A11ySentinel
+                </span>
+                <span className="font-mono text-[10px] font-medium uppercase tracking-[0.5px] text-cblue border border-line2 px-1.5 py-0.5 whitespace-nowrap">
+                  ADK Agent Pipeline
+                </span>
+              </div>
+              <p className="text-[11px] text-bodyp mt-0.5 truncate">
+                Source-Level WCAG 2.1 AA / RGAA 4 Audit &amp; Remediation
+              </p>
             </div>
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-200 bg-clip-text text-transparent">
-                A11ySentinel
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                ADK Agent Pipeline
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 hidden sm:block">
-              Source-Level WCAG 2.1 AA / RGAA 4 Audit & Remediation
-            </p>
-          </div>
-        </div>
 
-        {/* Quick Demo Presets & Report Button */}
-        <div className="flex items-center space-x-3">
-          
-          {/* Preset dataset buttons */}
-          <div className="hidden lg:flex items-center p-1 bg-slate-900/90 rounded-lg border border-slate-800 text-xs">
-            <span className="px-2 text-slate-500 font-medium text-[11px]">Fixtures:</span>
+          <div className="flex items-center gap-2 flex-wrap">
             <button
+              type="button"
               onClick={() => onLoadFixture('sample')}
-              className={`px-2.5 py-1 rounded-md transition-all font-medium flex items-center space-x-1.5 ${
-                activeFixture === 'sample' 
-                  ? 'bg-indigo-600 text-white shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
+              className={segment(activeFixture === 'sample')}
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Fixture Contract (aud_7f3c91)</span>
+              <Sparkles className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" strokeWidth={1.5} />
+              Fixture Contract (aud_7f3c91)
             </button>
             <button
+              type="button"
               onClick={() => onLoadFixture('demo')}
-              className={`px-2.5 py-1 rounded-md transition-all font-medium flex items-center space-x-1.5 ${
-                activeFixture === 'demo' 
-                  ? 'bg-emerald-600 text-white shadow-sm' 
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
+              className={segment(activeFixture === 'demo')}
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Marché Antsahabe (21→4)</span>
+              <CheckCircle2 className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" strokeWidth={1.5} />
+              Marché Antsahabe (21→4)
             </button>
+
+            <button
+              type="button"
+              onClick={() => goTo('report')}
+              className="px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap border border-line2 text-bodyp hover:text-head transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" strokeWidth={1.5} />
+              Remediation Report
+            </button>
+
+            <span className="flex items-center gap-2 px-3 py-1.5 border border-line2 text-[11px] font-semibold text-cgreen whitespace-nowrap">
+              <span className="relative grid place-items-center w-[7px] h-[7px]">
+                <span className="absolute inset-0 rounded-full bg-green" />
+                <span className="absolute inset-0 rounded-full bg-green a11-pulse" />
+              </span>
+              Cloud Run Active
+              <Cpu className="w-3.5 h-3.5" strokeWidth={1.5} />
+              <ExternalLink className="w-3 h-3 opacity-70" strokeWidth={1.5} />
+            </span>
+
+            {/* Theme switcher — always word-labelled, never icon-only. */}
+            <div
+              role="group"
+              aria-label="Colour theme"
+              className="flex items-center border border-line2"
+            >
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                aria-pressed={theme === 'light'}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+                  theme === 'light'
+                    ? 'bg-fill-blue text-on-fill'
+                    : 'bg-transparent text-bodyp hover:text-head'
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5" strokeWidth={1.5} />
+                Light
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                aria-pressed={theme === 'dark'}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+                  theme === 'dark'
+                    ? 'bg-fill-blue text-on-fill'
+                    : 'bg-transparent text-bodyp hover:text-head'
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5" strokeWidth={1.5} />
+                Dark
+              </button>
+            </div>
           </div>
-
-          {/* Report Document CTA Button */}
-          <button
-            onClick={onOpenReport}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
-              isReportMode 
-                ? 'bg-indigo-600 text-white border-indigo-500' 
-                : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/20'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden sm:inline">Remediation Report</span>
-          </button>
-
-          {/* Cloud Run Service Badge */}
-          <a
-            href="https://a11ysentinel-pipeline-708226575684.us-central1.run.app/health"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs hover:bg-emerald-500/20 transition"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span className="font-medium hidden sm:inline">Cloud Run Active</span>
-            <Cpu className="w-3.5 h-3.5" />
-            <ExternalLink className="w-3 h-3 opacity-70" />
-          </a>
-
         </div>
 
+        {/* Row 2 — view tabs. */}
+        <nav className="flex items-center gap-6 border-t border-line" aria-label="View">
+          {(
+            [
+              ['dashboard', 'Dashboard'],
+              ['report', 'Remediation Report'],
+            ] as const
+          ).map(([view, label]) => {
+            const active = (view === 'report') === isReportMode;
+            return (
+              <button
+                key={view}
+                type="button"
+                onClick={() => goTo(view)}
+                aria-current={active ? 'page' : undefined}
+                className={`py-2.5 text-[12.5px] font-semibold border-b-2 -mb-px transition-colors ${
+                  active
+                    ? 'border-blue text-head'
+                    : 'border-transparent text-bodyp hover:text-head'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
     </header>
   );

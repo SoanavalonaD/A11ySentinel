@@ -214,7 +214,32 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
       message: "Pipeline completed successfully. 4 verified patches written to Firestore. Status updated to complete.",
       stage: "complete"
     }
-  ]
+  ],
+  // Agent 8 accepted. Prose only — every number, link and the opt-out footer
+  // below it is template text.
+  emailDraft: {
+    drafted: true,
+    modelUsed: true,
+    opening:
+      "We ran an automated accessibility audit on demo-target.a11ysentinel.dev without being asked, and wanted to share the few things it found that affect people directly.",
+    highlights: [
+      {
+        findingId: "f_001",
+        sentence:
+          "Someone using a screen reader reaches the end of your contact form and hears only 'button', with no way to tell that it sends the message."
+      },
+      {
+        findingId: "f_002",
+        sentence:
+          "The pricing comparison image is announced only as 'image', so the figures it carries are lost to anyone not looking at the screen."
+      }
+    ],
+    closing: "The full report is below if it is useful to you.",
+    language: "en",
+    reason: null,
+    screened:
+      "Model Armor screened 6 text blocks: no prompt injection or malicious content detected"
+  }
 };
 
 export const DEMO_SITE_FIXTURE: AuditResultResponse = {
@@ -314,5 +339,19 @@ export const DEMO_SITE_FIXTURE: AuditResultResponse = {
       announcedBefore: "edit text: \"Search products...\"",
       announcedAfter: "edit text: \"Search products\""
     }
-  ]
+  ],
+  // Agent 8 refused. This is the fallback path: the email still goes out, on
+  // the static template, and the modal says why.
+  emailDraft: {
+    drafted: false,
+    modelUsed: false,
+    opening: null,
+    highlights: [],
+    closing: null,
+    language: "fr",
+    reason:
+      "draft refused, claim discipline: asserts compliance [fr] ('conforme'); raises litigation [fr] ('poursuites')",
+    screened:
+      "Model Armor screened 9 text blocks: no prompt injection or malicious content detected"
+  }
 };

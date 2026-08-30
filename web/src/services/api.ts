@@ -7,6 +7,7 @@ export interface AuditRequestPayload {
   visual?: boolean;
   remediate?: boolean;
   modelTriage?: boolean;
+  draftEmail?: boolean;
 }
 
 const API_BASE_URL = 'https://a11ysentinel-pipeline-708226575684.us-central1.run.app';
@@ -36,6 +37,8 @@ export async function runAuditApi(payload: AuditRequestPayload): Promise<AuditRe
         remediationLimit: 5,
         modelTriage: payload.modelTriage ?? true,
         visual: payload.visual ?? true,
+        // Agent 8. A draft is a proposal; the approval gate still decides.
+        draftEmail: payload.draftEmail ?? true,
       }),
     });
 

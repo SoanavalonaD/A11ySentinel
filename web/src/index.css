@@ -2,80 +2,378 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Solarized Light / Abyss Dark.
+
+  Both themes are complete and independent — dark is not a skin over light.
+  Every value here comes from design/design_handoff_a11ysentinel_retheme/README.md.
+
+  Two accent ramps, and the distinction is load-bearing:
+    --green / --blue / ...   canonical accents. Fills, icon glyphs, borders,
+                             chart marks. Never small text on a light ground —
+                             canonical Solarized green measures 2.6:1 on --panel.
+    --cgreen / --cblue / ... the accent-as-text ramp. Same hues, contrast-
+                             corrected. Any accent that carries words uses these,
+                             including on tinted chips.
+*/
+
+:root {
+  --bg: #fdf6e3;
+  --panel: #eee8d5;
+  --sunk: #fdf6e3;
+  --code: #f6efdb;
+
+  --head: #073642;
+  --body: #586e75;
+  --bodyp: #576c73;
+  --line: #d3cbb7;
+  --line2: #93a1a1;
+
+  --green: #859900;
+  --blue: #4a7396;
+  --cyan: #2aa198;
+  --yellow: #b58900;
+  --orange: #cb4b16;
+  --red: #dc322f;
+  --violet: #6c71c4;
+  --magenta: #d33682;
+
+  --fill-blue: #3a5f80;
+  --fill-blue-h: #2c4b68;
+  --fill-yellow: #846400;
+  --fill-yellow-h: #6b5100;
+  --on-fill: #fdf6e3;
+
+  --plate: #073642;
+  --on-plate: #fdf6e3;
+  --shade: #073642;
+
+  --cgreen: #4e5900;
+  --cblue: #2c5675;
+  --ccyan: #175c57;
+  --cyellow: #6d5300;
+  --corange: #9c3a11;
+  --cred: #b01f1c;
+  --cviolet: #494ea8;
+  --cmagenta: #9e2260;
+}
+
+[data-theme='dark'] {
+  --bg: #000c18;
+  --panel: #001c38;
+  --sunk: #00142a;
+  --code: #000f1f;
+
+  --head: #e4ecfb;
+  --body: #a4bade;
+  --bodyp: #a4bade;
+  --line: #1f3f68;
+  --line2: #3d6194;
+
+  --green: #22aa44;
+  --blue: #6688cc;
+  --cyan: #3fc7bd;
+  --yellow: #ddbb88;
+  --orange: #f2a76c;
+  --red: #ff628c;
+  --violet: #9966b8;
+  --magenta: #f280d0;
+
+  --fill-blue: #6688cc;
+  --fill-blue-h: #82a2e0;
+  --fill-yellow: #ddbb88;
+  --fill-yellow-h: #ecca98;
+  --on-fill: #000c18;
+
+  --plate: #062a52;
+  --on-plate: #e4ecfb;
+  --shade: #000000;
+
+  --cgreen: #5fd484;
+  --cblue: #9dc0f2;
+  --ccyan: #6fdcd2;
+  --cyellow: #e9cb96;
+  --corange: #f8bd92;
+  --cred: #ff9db1;
+  --cviolet: #c79fe4;
+  --cmagenta: #f9a9de;
+}
+
 @layer base {
+  * {
+    box-sizing: border-box;
+  }
+
   body {
-    background-color: #090d16;
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(30, 27, 75, 0.5) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
-      radial-gradient(at 50% 50%, rgba(99, 102, 241, 0.05) 0px, transparent 50%);
-    background-attachment: fixed;
+    margin: 0;
+    font-family: Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--body);
+  }
+
+  a {
+    color: var(--cblue);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--ccyan);
+    text-decoration: underline;
+  }
+
+  button {
+    font-family: inherit;
+  }
+
+  /* Hard rule 3 — focus visible on every interactive element, both themes. */
+  :focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--blue) 22%, var(--bg));
+  }
+
+  /* Native controls inherit the theme rather than the UA's own palette. */
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    color: var(--head);
+    background: var(--sunk);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--body);
+    opacity: 0.75;
+  }
+
+  [type='checkbox'] {
+    accent-color: var(--fill-blue);
   }
 }
 
-/* Custom Scrollbar */
+/* Scrollbars follow the surface they sit on. */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0d121f;
+  background: var(--sunk);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1f293d;
-  border-radius: 4px;
+  background: var(--line2);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #374151;
+  background: var(--body);
 }
 
-/* Glassmorphism effects */
-.glass-panel {
-  background: rgba(18, 23, 35, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* ── Surfaces ─────────────────────────────────────────────────────────────
+   Flat, matte, square. No translucency, no blur, no glow — a semi-transparent
+   panel makes the effective background unknowable, and every contrast
+   guarantee below depends on knowing it.                                    */
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line2);
 }
 
-.glass-card {
-  background: rgba(22, 28, 43, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+.card-shadow {
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--shade) 9%, transparent);
 }
 
-.glass-input {
-  background: rgba(13, 17, 26, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.card-shadow-hover:hover {
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--shade) 14%, transparent);
+  transform: translateY(-2px);
 }
 
-.glass-input:focus {
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+/* The hero plate: a solid dark field carrying reversed-out ink. */
+.plate {
+  background: var(--plate);
+  color: var(--on-plate);
+  position: relative;
+  overflow: hidden;
 }
 
-/* Diff code styling */
+.plate-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--on-plate) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--on-plate) 6%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 56px 56px;
+  pointer-events: none;
+}
+
+.plate-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 34%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--on-plate) 7%, transparent),
+    transparent
+  );
+  animation: a11sweep 7s linear infinite;
+  pointer-events: none;
+}
+
+/* Code / log surface. */
+.code-surface {
+  background: var(--code);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ── Diff ─────────────────────────────────────────────────────────────────
+   Both sides carry a sign glyph in the markup as well as the tint, so the
+   removed/added distinction survives without colour (hard rule 2).          */
+
 .diff-removed {
-  background-color: rgba(239, 68, 68, 0.15);
-  border-left: 3px solid #ef4444;
-  color: #fca5a5;
+  background-color: color-mix(in srgb, var(--red) 12%, var(--code));
+  border-left: 3px solid var(--red);
+  color: var(--cred);
 }
 
 .diff-added {
-  background-color: rgba(16, 185, 129, 0.15);
-  border-left: 3px solid #10b981;
-  color: #6ee7b7;
+  background-color: color-mix(in srgb, var(--green) 12%, var(--code));
+  border-left: 3px solid var(--green);
+  color: var(--cgreen);
 }
 
-@keyframes pulse-ring {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.05); opacity: 0.4; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+/* TODO placeholders inside a draft patch. */
+mark.todo {
+  background: color-mix(in srgb, var(--yellow) 42%, transparent);
+  color: var(--head);
+  padding: 0 3px;
 }
 
-.pulsing-ring {
-  animation: pulse-ring 2.5s infinite;
+/* ── Motion ───────────────────────────────────────────────────────────── */
+
+@keyframes a11pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0.25;
+    transform: scale(1.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+@keyframes a11bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(240%);
+  }
+}
+
+@keyframes a11rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes a11sweep {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+@keyframes a11eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes a11blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.a11-pulse {
+  animation: a11pulse 1.8s ease-out infinite;
+}
+
+.a11-bar {
+  animation: a11bar 1.6s linear infinite;
+}
+
+.a11-rise {
+  animation: a11rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.a11-eq {
+  animation: a11eq 1.1s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+.a11-blink {
+  animation: a11blink 1.1s step-end infinite;
+}
+
+/*
+  Hard rule 4. Counters land on their final values rather than animating —
+  that is handled in the component, which checks the same media query.
+*/
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .card-shadow-hover:hover {
+    transform: none;
+  }
+}
+
+/* Print: the report is a deliverable, so drop the furniture. */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
 }

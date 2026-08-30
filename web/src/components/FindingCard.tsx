@@ -1,37 +1,71 @@
 import React, { useState } from 'react';
-import { Finding } from '../types/schema';
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  Eye, 
-  Copy, 
-  Check, 
-  Volume2, 
-  Code, 
-  UserCheck, 
+import { Finding, FindingSeverity } from '../types/schema';
+import {
+  CheckCircle,
+  AlertTriangle,
+  Eye,
+  Copy,
+  Check,
+  Volume2,
+  Code,
+  UserCheck,
   ShieldAlert,
   ChevronDown,
   ChevronUp,
   FileCode,
-  Layers
 } from 'lucide-react';
 
 interface FindingCardProps {
   finding: Finding;
+  index: number;
   onOpenHumanGuidance: (finding: Finding) => void;
 }
 
-export const FindingCard: React.FC<FindingCardProps> = ({ finding, onOpenHumanGuidance }) => {
+/** Glyph + word for every severity — the label never rests on colour alone. */
+const SEVERITY: Record<FindingSeverity, { glyph: string; ink: string; border: string }> = {
+  critical: { glyph: '■', ink: 'text-cred', border: 'border-red' },
+  serious: { glyph: '◆', ink: 'text-corange', border: 'border-orange' },
+  moderate: { glyph: '▲', ink: 'text-cyellow', border: 'border-yellow' },
+  minor: { glyph: '●', ink: 'text-cblue', border: 'border-blue' },
+};
+
+/** Split a draft patch so the TODO placeholder can be marked rather than described. */
+function renderWithTodo(code: string): React.ReactNode {
+  const match = code.match(/TODO:[^"'>]*/);
+  if (!match || match.index === undefined) return code;
+  return (
+    <>
+      {code.slice(0, match.index)}
+      <mark className="todo">{match[0]}</mark>
+      {code.slice(match.index + match[0].length)}
+    </>
+  );
+}
+
+const Chip: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className = '',
+}) => (
+  <span
+    className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold border ${className}`}
+  >
+    {children}
+  </span>
+);
+
+export const FindingCard: React.FC<FindingCardProps> = ({
+  finding,
+  index,
+  onOpenHumanGuidance,
+}) => {
   const [copiedSelector, setCopiedSelector] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Hard Rule 1: Never render 'patched' status findings
-  if (finding.status === 'patched') {
-    return null;
-  }
+  // Hard rule: a `patched` finding is never rendered.
+  if (finding.status === 'patched') return null;
 
   const isVerified = finding.status === 'verified';
-  const isDetected = finding.status === 'detected';
+  const needsHuman = finding.requiresHumanInput;
 
   const copySelector = () => {
     navigator.clipboard.writeText(finding.selector);
@@ -39,214 +73,247 @@ export const FindingCard: React.FC<FindingCardProps> = ({ finding, onOpenHumanGu
     setTimeout(() => setCopiedSelector(false), 2000);
   };
 
-  // Severity styling
-  const severityBadgeClass = {
-    critical: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-    serious: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    moderate: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-    minor: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-  }[finding.severity];
+  // State drives one full-width band at the top of the card — no left rails.
+  const band = needsHuman
+    ? { accent: 'var(--yellow)', ink: 'text-cyellow', Icon: UserCheck, label: 'Action Required — human input' }
+    : isVerified
+    ? { accent: 'var(--green)', ink: 'text-cgreen', Icon: CheckCircle, label: 'Verified Patch' }
+    : { accent: 'var(--red)', ink: 'text-cred', Icon: ShieldAlert, label: 'Detected Violation — no patch' };
+
+  const severity = SEVERITY[finding.severity];
+  const stagger = [0.04, 0.11, 0.18][index % 3];
 
   return (
-    <div className={`glass-card rounded-2xl border transition-all duration-200 overflow-hidden ${
-      finding.requiresHumanInput 
-        ? 'border-amber-500/40 bg-gradient-to-b from-amber-950/10 to-transparent' 
-        : isVerified 
-          ? 'border-slate-800 hover:border-slate-700' 
-          : 'border-rose-500/30 bg-rose-950/5'
-    }`}>
-      
-      {/* Card Header Bar */}
-      <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/60">
-        
+    <article
+      className="panel card-shadow card-shadow-hover a11-rise transition-shadow duration-[180ms] ease-out"
+      style={{
+        animationDelay: `${stagger}s`,
+        background: needsHuman
+          ? 'color-mix(in srgb, var(--yellow) 5%, var(--bg))'
+          : undefined,
+      }}
+    >
+      {/* Status band */}
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b"
+        style={{
+          background: `color-mix(in srgb, ${band.accent} 16%, var(--panel))`,
+          borderBottomColor: `color-mix(in srgb, ${band.accent} 45%, transparent)`,
+        }}
+      >
+        <span className={`flex items-center gap-2 text-[13px] font-bold ${band.ink}`}>
+          <band.Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+          {band.label}
+        </span>
+
+        {/* On the tinted band, body ink drops to ~3.8:1 — the band's own
+            --c* ramp is the accessible ink here. */}
+        <span className={`flex items-center gap-2 shrink-0 ${band.ink}`}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.6px]">Finding</span>
+          <span className="font-display text-[15px] font-bold text-on-plate bg-plate px-2 py-0.5 leading-tight">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+          <span className="font-mono text-[11px]">{finding.findingId}</span>
+        </span>
+      </div>
+
+      {/* Meta row */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-line">
         <div className="flex flex-wrap items-center gap-2">
-          
-          {/* Status Badge */}
-          {isVerified ? (
-            <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span>Verified Patch</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Detected Violation (No Diff)</span>
-            </span>
-          )}
+          <Chip className={finding.source === 'visual' ? 'border-violet text-cviolet' : 'border-line2 text-bodyp'}>
+            {finding.source === 'visual' ? (
+              <Eye className="w-3 h-3" strokeWidth={1.5} />
+            ) : (
+              <Code className="w-3 h-3" strokeWidth={1.5} />
+            )}
+            {finding.source === 'visual' ? 'VisualAuditor (Gemini)' : 'axe-core'}
+          </Chip>
 
-          {/* Human Input Badge */}
-          {finding.requiresHumanInput && (
-            <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse-slow">
-              <UserCheck className="w-3.5 h-3.5" />
-              <span>Action Required</span>
-            </span>
-          )}
-
-          {/* Source Badge */}
-          <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium border ${
-            finding.source === 'visual' 
-              ? 'bg-purple-500/10 text-purple-300 border-purple-500/20' 
-              : 'bg-slate-800 text-slate-300 border-slate-700'
-          }`}>
-            {finding.source === 'visual' ? <Eye className="w-3 h-3 text-purple-400" /> : <Code className="w-3 h-3 text-slate-400" />}
-            <span className="capitalize">{finding.source === 'visual' ? 'VisualAuditor (Gemini)' : 'axe-core'}</span>
-          </span>
-
-          {/* Severity Badge */}
-          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider border ${severityBadgeClass}`}>
+          <Chip className={`${severity.border} ${severity.ink} uppercase tracking-[0.5px]`}>
+            <span aria-hidden="true">{severity.glyph}</span>
             {finding.severity}
-          </span>
+          </Chip>
 
+          <Chip className="border-line2 text-head font-mono">{finding.category}</Chip>
         </div>
 
-        {/* Criteria Tags */}
-        <div className="flex items-center space-x-2 text-xs font-mono">
-          <span className="px-2 py-1 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-semibold">
+        <div className="flex items-center gap-2 font-mono text-[11px]">
+          <span className="px-2 py-0.5 border border-line2 text-cblue font-semibold">
             WCAG {finding.wcagCriterion}
           </span>
-
           {finding.regionalFramework && finding.regionalCriterion && (
-            <span className="px-2 py-1 rounded bg-slate-900 border border-slate-800 text-emerald-300 font-semibold" title="Regional framework equivalent (contextual reference)">
+            <span
+              className="px-2 py-0.5 border border-line2 text-ccyan font-semibold"
+              title="Regional framework equivalent (contextual reference)"
+            >
               {finding.regionalFramework} {finding.regionalCriterion}
             </span>
           )}
-
           <button
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1 rounded text-slate-400 hover:text-white transition ml-2"
+            aria-expanded={isExpanded}
+            className="p-1 text-bodyp hover:text-head transition-colors"
           >
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <span className="sr-only">{isExpanded ? 'Collapse finding' : 'Expand finding'}</span>
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4" strokeWidth={1.5} />
+            ) : (
+              <ChevronDown className="w-4 h-4" strokeWidth={1.5} />
+            )}
           </button>
         </div>
-
       </div>
 
-      {/* Card Content Body */}
       {isExpanded && (
-        <div className="p-5 space-y-5">
-          
-          {/* User Impact Plain-Language Description */}
+        <div className="p-4 space-y-4">
           <div>
-            <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+            <h4 className="text-[10.5px] font-bold uppercase tracking-[0.6px] text-bodyp mb-1.5">
               User Impact (Plain-Language Consequence):
             </h4>
-            <p className="text-sm text-slate-100 font-medium leading-relaxed bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+            <p className="text-[14px] text-head leading-relaxed bg-sunk border border-line p-3">
               {finding.userImpact}
             </p>
           </div>
 
-          {/* Visual Auditor Evidence (if present) */}
           {finding.evidence && (
-            <div className="bg-purple-950/20 border border-purple-500/20 rounded-xl p-3 text-xs text-purple-200/90 space-y-1">
-              <span className="font-semibold text-purple-300 flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5 text-purple-400" />
+            <div className="border border-violet p-3 text-[12.5px] text-bodyp" style={{ background: 'color-mix(in srgb, var(--violet) 8%, var(--bg))' }}>
+              <span className="font-semibold text-cviolet flex items-center gap-1.5 mb-1">
+                <Eye className="w-3.5 h-3.5" strokeWidth={1.5} />
                 Multimodal Visual Finding:
               </span>
-              <p>{finding.evidence}</p>
+              {finding.evidence}
             </div>
           )}
 
-          {/* Screen Reader Announcement Headline (Draft 3) */}
-          {/* Render ONLY if announcedBefore is non-null */}
+          {/* Screen reader announcement — rendered only when both sides exist. */}
           {finding.announcedBefore !== null && finding.announcedAfter !== null && (
-            <div className="glass-panel rounded-xl p-4 border border-indigo-500/20 bg-indigo-950/20 space-y-2">
-              <div className="text-xs font-semibold text-indigo-300 flex items-center gap-1.5">
-                <Volume2 className="w-4 h-4 text-indigo-400" />
-                <span>Screen Reader Announcement (Chromium CDP)</span>
+            <div
+              className="border border-cyan p-3.5"
+              style={{ background: 'color-mix(in srgb, var(--cyan) 10%, var(--bg))' }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Volume2 className="w-4 h-4 text-ccyan shrink-0" strokeWidth={1.5} />
+                <span className="text-[12.5px] font-bold text-ccyan">
+                  Screen Reader Announcement (Chromium CDP)
+                </span>
+                <span aria-hidden="true" className="flex items-end gap-[3px] h-3.5 ml-1">
+                  {[0, 1, 2, 3].map((i) => (
+                    <span
+                      key={i}
+                      className="w-[3px] h-full bg-cyan a11-eq"
+                      style={{ animationDelay: `${i * 0.18}s` }}
+                    />
+                  ))}
+                </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
-                <div className="p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/20 text-rose-300">
-                  <span className="text-[10px] text-rose-400 uppercase block font-sans font-bold">Before Patch:</span>
-                  {finding.announcedBefore}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-[13px]">
+                <div className="bg-sunk border border-red p-2.5">
+                  <span className="block font-sans text-[10px] font-bold uppercase tracking-[0.6px] text-cred mb-1">
+                    Before Patch:
+                  </span>
+                  <span className="text-head break-words">{finding.announcedBefore}</span>
                 </div>
-                <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/20 text-emerald-300">
-                  <span className="text-[10px] text-emerald-400 uppercase block font-sans font-bold">After Patch:</span>
-                  {finding.announcedAfter}
+                <div className="bg-sunk border border-green p-2.5">
+                  <span className="block font-sans text-[10px] font-bold uppercase tracking-[0.6px] text-cgreen mb-1">
+                    After Patch:
+                  </span>
+                  <span className="text-head break-words">{finding.announcedAfter}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Element Selector & XPath */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+          {/* Selector */}
+          <div>
+            <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-[0.6px] text-bodyp mb-1.5">
               <span>CSS Selector:</span>
               <button
+                type="button"
                 onClick={copySelector}
-                className="flex items-center space-x-1 text-slate-400 hover:text-indigo-400 transition"
+                className="flex items-center gap-1.5 text-bodyp hover:text-head transition-colors normal-case tracking-normal font-semibold text-[11px]"
               >
-                {copiedSelector ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedSelector ? 'Copied!' : 'Copy'}</span>
+                {copiedSelector ? (
+                  <Check className="w-3.5 h-3.5 text-cgreen" strokeWidth={1.5} />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" strokeWidth={1.5} />
+                )}
+                {copiedSelector ? 'Copied' : 'Copy'}
               </button>
             </div>
-            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-indigo-300 truncate">
+            <div className="code-surface border border-line2 p-2.5 text-[12.5px] text-head overflow-x-auto">
               {finding.selector}
             </div>
           </div>
 
-          {/* Requires Human Input Warning Banner */}
-          {finding.requiresHumanInput && (
-            <div className="bg-amber-950/40 border border-amber-500/30 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-amber-300 font-bold text-xs">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  <span>Requires human review</span>
+          {/* Diff — verified fixes and draft patches awaiting a person. */}
+          {finding.patchedCode && (isVerified || needsHuman) ? (
+            <div>
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-1.5">
+                <h5 className="text-[10.5px] font-bold uppercase tracking-[0.6px] text-bodyp flex items-center gap-1.5">
+                  <FileCode className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  {needsHuman ? 'Draft Source Code Diff:' : 'Verified Source Code Diff:'}
+                </h5>
+                {finding.changeSummary && (
+                  <span className="text-[12px] text-cgreen italic">"{finding.changeSummary}"</span>
+                )}
+              </div>
+
+              <div className="border border-line2 font-mono text-[12.5px]">
+                <div className="diff-removed p-3 overflow-x-auto">
+                  <span className="block font-sans text-[10px] font-bold uppercase tracking-[0.6px] mb-1">
+                    − Original
+                  </span>
+                  <code className="text-head">{finding.currentCode}</code>
                 </div>
+                <div className="diff-added p-3 overflow-x-auto">
+                  <span className="block font-sans text-[10px] font-bold uppercase tracking-[0.6px] mb-1">
+                    {needsHuman ? '+ Draft patch — contains placeholder' : '+ Verified Patch'}
+                  </span>
+                  <code className="text-head">
+                    {needsHuman ? renderWithTodo(finding.patchedCode) : finding.patchedCode}
+                  </code>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* No patch on this finding. */}
+          {!finding.patchedCode && (
+            <div className="border border-dashed border-red p-4 text-[12.5px] text-bodyp flex items-start gap-2">
+              <ShieldAlert className="w-4 h-4 text-cred shrink-0 mt-0.5" strokeWidth={1.5} />
+              <span>
+                <strong className="text-cred font-semibold">No patch on this finding. </strong>
+                Real violation confirmed by axe-core. No code patch has survived verification yet.
+              </span>
+            </div>
+          )}
+
+          {/* Human review block. */}
+          {needsHuman && (
+            <div
+              className="border border-yellow p-4 space-y-3"
+              style={{ background: 'color-mix(in srgb, var(--yellow) 10%, var(--bg))' }}
+            >
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <span className="flex items-center gap-2 text-[12.5px] font-bold text-cyellow">
+                  <AlertTriangle className="w-4 h-4" strokeWidth={1.5} />
+                  Requires human review
+                </span>
                 <button
+                  type="button"
                   onClick={() => onOpenHumanGuidance(finding)}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-semibold transition"
+                  className="px-3 py-1.5 bg-fill-yellow hover:bg-fill-yellow-h text-on-fill text-[11px] font-semibold transition-colors"
                 >
                   View editing guidance
                 </button>
               </div>
-              <p className="text-xs text-amber-200/80 leading-relaxed">
-                {finding.humanGuidance}
-              </p>
+              <p className="text-[12.5px] text-bodyp leading-relaxed">{finding.humanGuidance}</p>
             </div>
           )}
-
-          {/* CODE DIFF VIEWER (ONLY FOR VERIFIED FINDINGS) */}
-          {/* Hard Rule 1 & 2: Show code diff ONLY when status == 'verified' */}
-          {isVerified && finding.patchedCode ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h5 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileCode className="w-3.5 h-3.5 text-emerald-400" />
-                  Verified Source Code Diff:
-                </h5>
-                {finding.changeSummary && (
-                  <span className="text-xs text-emerald-400 font-medium italic">
-                    "{finding.changeSummary}"
-                  </span>
-                )}
-              </div>
-
-              <div className="rounded-xl border border-slate-800 overflow-hidden font-mono text-xs shadow-inner">
-                {/* Original Code */}
-                <div className="diff-removed p-3 overflow-x-auto">
-                  <span className="text-[10px] text-rose-400 uppercase block font-sans font-bold mb-1">- Original Code:</span>
-                  <code>{finding.currentCode}</code>
-                </div>
-
-                {/* Patched Code */}
-                <div className="diff-added p-3 overflow-x-auto">
-                  <span className="text-[10px] text-emerald-400 uppercase block font-sans font-bold mb-1">+ Verified Patch:</span>
-                  <code>{finding.patchedCode}</code>
-                </div>
-              </div>
-            </div>
-          ) : isDetected ? (
-            <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-slate-500 shrink-0" />
-              <span>
-                <strong>Detected Status:</strong> Real violation confirmed by axe-core. No code patch has survived verification yet.
-              </span>
-            </div>
-          ) : null}
-
         </div>
       )}
-
-    </div>
+    </article>
   );
 };

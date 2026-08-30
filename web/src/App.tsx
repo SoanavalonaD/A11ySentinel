@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Audit, Finding, FindingSeverity, FindingSource } from './types/schema';
+import { Audit, EmailStatus, Finding, FindingSeverity, FindingSource } from './types/schema';
 import { SAMPLE_FIXTURE, DEMO_SITE_FIXTURE } from './data/sampleFixture';
 import { runAuditApi, AuditRequestPayload } from './services/api';
 
@@ -24,6 +24,7 @@ export const App: React.FC = () => {
   const [activeNotes, setActiveNotes] = useState<string[] | undefined>(SAMPLE_FIXTURE.notes);
   const [activeWrite, setActiveWrite] = useState(SAMPLE_FIXTURE.write);
   const [activeLogs, setActiveLogs] = useState(SAMPLE_FIXTURE.auditLogs);
+  const [activeEmailDraft, setActiveEmailDraft] = useState(SAMPLE_FIXTURE.emailDraft);
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedHumanFinding, setSelectedHumanFinding] = useState<Finding | null>(null);
@@ -47,12 +48,14 @@ export const App: React.FC = () => {
       setActiveNotes(SAMPLE_FIXTURE.notes);
       setActiveWrite(SAMPLE_FIXTURE.write);
       setActiveLogs(SAMPLE_FIXTURE.auditLogs);
+      setActiveEmailDraft(SAMPLE_FIXTURE.emailDraft);
     } else {
       setActiveAudit(DEMO_SITE_FIXTURE.audit);
       setFindings(DEMO_SITE_FIXTURE.findings);
       setActiveNotes(DEMO_SITE_FIXTURE.notes);
       setActiveWrite(DEMO_SITE_FIXTURE.write);
       setActiveLogs(DEMO_SITE_FIXTURE.auditLogs);
+      setActiveEmailDraft(DEMO_SITE_FIXTURE.emailDraft);
     }
   };
 
@@ -105,6 +108,7 @@ export const App: React.FC = () => {
         if (result.notes) setActiveNotes(result.notes);
         if (result.write) setActiveWrite(result.write);
         if (result.auditLogs) setActiveLogs(result.auditLogs);
+        setActiveEmailDraft(result.emailDraft ?? undefined);
         setIsLoading(false);
       }, 3800);
     } catch (err) {
@@ -169,7 +173,7 @@ export const App: React.FC = () => {
         />
       ) : (
         /* Main Container */
-        <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <main className="flex-grow max-w-[1280px] w-full mx-auto px-6 py-8 space-y-7">
           
           {/* Audit Form */}
           <AuditForm onRunAudit={handleRunAudit} isLoading={isLoading} />
@@ -206,30 +210,38 @@ export const App: React.FC = () => {
 
         {/* Findings List Section */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-lg font-bold text-white flex items-center space-x-2">
-              <Layers className="w-5 h-5 text-indigo-400" />
-              <span>Findings & Verified Fixes ({filteredFindings.length})</span>
-            </h3>
-            <span className="text-xs text-slate-400 font-mono">
-              Sorted by priority rank (triageRank)
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-head pb-2">
+            <div>
+              <div className="text-[10.5px] font-bold uppercase tracking-[0.6px] text-bodyp">
+                Evidence
+              </div>
+              <h3 className="text-[21px] font-bold text-head flex items-center gap-2 mt-0.5">
+                <Layers className="w-5 h-5 text-cblue" strokeWidth={1.5} />
+                Findings &amp; Verified Fixes
+              </h3>
+            </div>
+            <span className="font-mono text-[11px] text-bodyp">
+              sorted by triage rank · showing {filteredFindings.length} of {totalCount}
             </span>
           </div>
 
           {filteredFindings.length === 0 ? (
-            <div className="glass-panel rounded-2xl p-12 text-center border border-slate-800 space-y-3">
-              <AlertCircle className="w-10 h-10 text-slate-500 mx-auto" />
-              <h4 className="text-base font-semibold text-slate-300">No findings match your current filters</h4>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
+            <div className="panel card-shadow p-12 text-center space-y-2">
+              <AlertCircle className="w-9 h-9 text-bodyp mx-auto" strokeWidth={1.5} />
+              <h4 className="text-[14px] font-semibold text-head">
+                No findings match your current filters
+              </h4>
+              <p className="text-[12.5px] text-bodyp max-w-md mx-auto">
                 Try resetting your search query or changing filter tabs.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredFindings.map((finding) => (
+              {filteredFindings.map((finding, idx) => (
                 <FindingCard
                   key={finding.findingId}
                   finding={finding}
+                  index={idx}
                   onOpenHumanGuidance={setSelectedHumanFinding}
                 />
               ))}
@@ -257,21 +269,25 @@ export const App: React.FC = () => {
       <EmailApprovalModal
         audit={activeAudit}
         findings={findings}
+        emailDraft={activeEmailDraft}
         isOpen={isEmailModalOpen}
         onClose={() => setIsEmailModalOpen(false)}
-        onEmailSent={() => {
-          setActiveAudit((prev) => ({ ...prev, emailStatus: 'sent' }));
+        onEmailSent={(status: EmailStatus) => {
+          // Whatever actually happened — `approved` when a human signed off but
+          // no transport dispatched it. Never assume 'sent'.
+          setActiveAudit((prev) => ({ ...prev, emailStatus: status }));
         }}
       />
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-[#070a11] py-8 text-center text-xs text-slate-500 space-y-2">
-        <div className="flex items-center justify-center space-x-2 text-slate-400 font-medium">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+      <footer className="border-t border-line2 bg-panel py-8 px-6 text-center text-[12px] text-bodyp space-y-2 print-hide">
+        <div className="flex items-center justify-center gap-2 font-semibold text-head">
+          <ShieldCheck className="w-4 h-4 text-cgreen" strokeWidth={1.5} />
           <span>A11ySentinel — Google Cloud All Things Agentic Hackathon</span>
         </div>
         <p>
-          Deterministic rule engine <code className="text-indigo-400 font-mono">axe-core 4.10.2</code> & Multimodal Agent <code className="text-indigo-400 font-mono">Gemini 3.7 Flash</code>.
+          Deterministic rule engine <code className="font-mono text-cblue">axe-core 4.10.2</code> &amp;
+          Multimodal Agent <code className="font-mono text-cblue">Gemini 3.7 Flash</code>.
         </p>
       </footer>
 

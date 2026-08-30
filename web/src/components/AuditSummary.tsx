@@ -1,6 +1,16 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Audit } from '../types/schema';
-import { ShieldCheck, ExternalLink, Globe, FileText, CheckCircle, AlertTriangle, ArrowRight, ShieldAlert, Mail, CheckCheck } from 'lucide-react';
+import {
+  ShieldCheck,
+  ExternalLink,
+  FileText,
+  CheckCircle,
+  AlertTriangle,
+  ArrowRight,
+  ShieldAlert,
+  Mail,
+  CheckCheck,
+} from 'lucide-react';
 
 interface AuditSummaryProps {
   audit: Audit;
@@ -10,10 +20,68 @@ interface AuditSummaryProps {
   onOpenEmailModal: () => void;
 }
 
-export const AuditSummary: React.FC<AuditSummaryProps> = ({ 
-  audit, 
-  verifiedCount, 
-  humanInputCount, 
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Count a metric up from 0 over 950ms, ease-out cubic.
+ *
+ * Lands on the final value immediately when reduced motion is requested —
+ * the number is the point, the animation is decoration.
+ */
+function useCountUp(target: number, duration = 950): number {
+  const [value, setValue] = useState(() => (prefersReducedMotion() ? target : 0));
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      setValue(target);
+      return;
+    }
+
+    let frame = 0;
+    const start = performance.now();
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(Math.round(target * eased));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, duration]);
+
+  return value;
+}
+
+const Metric: React.FC<{
+  label: string;
+  note: string;
+  icon?: React.ReactNode;
+  tinted?: boolean;
+  children: React.ReactNode;
+}> = ({ label, note, icon, tinted, children }) => (
+  // The grid gap shows `--line` through, so every cell needs its own opaque
+  // ground — without it the text is measured against the divider colour.
+  <div
+    className={`p-5 bg-panel ${tinted ? 'border-t-2 border-t-yellow' : ''}`}
+    style={tinted ? { background: 'color-mix(in srgb, var(--yellow) 8%, var(--bg))' } : undefined}
+  >
+    <div className="flex items-center justify-between gap-2 mb-2">
+      <span className="text-[10.5px] font-bold uppercase tracking-[0.6px] text-bodyp">{label}</span>
+      {icon}
+    </div>
+    {children}
+    <div className="mt-2 text-[11px] text-bodyp">{note}</div>
+  </div>
+);
+
+export const AuditSummary: React.FC<AuditSummaryProps> = ({
+  audit,
+  verifiedCount,
+  humanInputCount,
   onOpenReport,
   onOpenEmailModal,
 }) => {
@@ -21,154 +89,175 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({
   const after = audit.violationsAfter !== null ? audit.violationsAfter : before;
   const fixedCount = Math.max(0, before - after);
   const reductionPercentage = before > 0 ? Math.round((fixedCount / before) * 100) : 0;
-
   const emailStatus = audit.emailStatus || 'draft';
+  const failed = audit.status === 'failed';
+
+  const beforeN = useCountUp(before);
+  const afterN = useCountUp(after);
+  const verifiedN = useCountUp(verifiedCount);
+  const humanN = useCountUp(humanInputCount);
+  const pagesN = useCountUp(audit.pageCount);
+
+  // On the dark plate, accent colours never carry text — the ink stays
+  // --on-plate and the accent lives in the border and the fill.
+  const plateAction =
+    'inline-flex items-center gap-2 px-4 py-2.5 text-[12.5px] font-semibold text-on-plate border transition-colors';
 
   return (
-    <div className="glass-panel rounded-2xl p-6 mb-8 border border-slate-800 shadow-xl relative overflow-hidden">
-      
-      {/* Target URL Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 mb-6 border-b border-slate-800 gap-4">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-mono text-indigo-400 mb-1">
-            <Globe className="w-3.5 h-3.5" />
+    <section className="panel card-shadow" aria-label="Audit summary">
+      {/* Hero plate */}
+      <div className="plate plate-grid plate-sweep px-6 py-7">
+        <div className="relative z-10">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[11px] text-on-plate/80 mb-3">
             <span>Audit ID: {audit.auditId}</span>
-            <span className="text-slate-600">•</span>
+            <span aria-hidden="true">·</span>
             <span>{new Date(audit.createdAt).toLocaleString('en-US')}</span>
-
-            {/* Audit Status / Email Status Badge */}
-            <span className="text-slate-600">•</span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-              audit.status === 'failed'
-                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                : emailStatus === 'sent' 
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                  : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
-            }`}>
-              {audit.status === 'failed' ? 'STATUS: FAILED' : `Email: ${emailStatus}`}
+            <span aria-hidden="true">·</span>
+            <span
+              className={`px-2 py-0.5 font-bold uppercase tracking-[0.5px] text-on-plate border ${
+                failed ? 'border-red' : emailStatus === 'sent' ? 'border-green' : 'border-yellow'
+              }`}
+              style={{
+                background: failed
+                  ? 'color-mix(in srgb, var(--red) 22%, transparent)'
+                  : emailStatus === 'sent'
+                  ? 'color-mix(in srgb, var(--green) 22%, transparent)'
+                  : 'color-mix(in srgb, var(--yellow) 22%, transparent)',
+              }}
+            >
+              {failed
+                ? 'STATUS: FAILED'
+                : emailStatus === 'draft'
+                ? 'EMAIL: DRAFT — NOT SENT'
+                : `EMAIL: ${emailStatus.toUpperCase()}`}
             </span>
           </div>
-          <h2 className="text-2xl font-extrabold text-white flex items-center space-x-3">
-            <span className="truncate max-w-xl">{audit.targetUrl}</span>
-          </h2>
-        </div>
 
-        {/* Action Buttons: Report & Live Proxy Preview & Email Gate */}
-        {audit.status !== 'failed' && (
-          <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-2">
-            <button
-              onClick={onOpenReport}
-              className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 transition"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Generate Report</span>
-            </button>
-
-            <button
-              onClick={onOpenEmailModal}
-              className={`inline-flex items-center space-x-2 px-4 py-3 rounded-xl font-bold text-sm shadow-lg transition border ${
-                emailStatus === 'sent'
-                  ? 'bg-slate-800 text-emerald-400 border-emerald-500/30'
-                  : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white border-amber-500/30 shadow-amber-600/20'
-              }`}
-            >
-              {emailStatus === 'sent' ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Mail className="w-4 h-4" />}
-              <span>{emailStatus === 'sent' ? 'Email Sent' : 'Email Report (Human Gate)'}</span>
-            </button>
-
-            {audit.proxyUrl && (
-              <a
-                href={audit.proxyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition group"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Preview Corrected Site (Live Proxy)</span>
-                <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
-              </a>
-            )}
+          <div className="text-[10.5px] font-bold uppercase tracking-[0.6px] text-on-plate/70">
+            Audit target
           </div>
-        )}
+          <h2 className="font-display text-[34px] leading-tight font-bold tracking-[-0.6px] text-on-plate break-words mt-1">
+            {audit.targetUrl}
+          </h2>
+
+          {!failed && (
+            <div className="flex flex-wrap items-center gap-3 mt-5">
+              <button
+                type="button"
+                onClick={onOpenReport}
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-[12.5px] font-semibold bg-fill-blue text-on-fill hover:bg-fill-blue-h transition-colors"
+              >
+                <FileText className="w-4 h-4" strokeWidth={1.5} />
+                Generate Report
+              </button>
+
+              <button
+                type="button"
+                onClick={onOpenEmailModal}
+                className={`${plateAction} border-yellow hover:bg-[color-mix(in_srgb,var(--yellow)_34%,transparent)]`}
+                style={{ background: 'color-mix(in srgb, var(--yellow) 20%, transparent)' }}
+              >
+                {emailStatus === 'sent' ? (
+                  <CheckCheck className="w-4 h-4" strokeWidth={1.5} />
+                ) : (
+                  <Mail className="w-4 h-4" strokeWidth={1.5} />
+                )}
+                {emailStatus === 'sent' ? 'Email Sent' : 'Email Report (Human Gate)'}
+              </button>
+
+              {audit.proxyUrl && (
+                <a
+                  href={audit.proxyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${plateAction} border-cyan hover:bg-[color-mix(in_srgb,var(--cyan)_34%,transparent)] !text-on-plate hover:!text-on-plate no-underline hover:no-underline`}
+                  style={{ background: 'color-mix(in srgb, var(--cyan) 20%, transparent)' }}
+                >
+                  <ShieldCheck className="w-4 h-4" strokeWidth={1.5} />
+                  Preview Corrected Site (Live Proxy)
+                  <ExternalLink className="w-3.5 h-3.5 opacity-70" strokeWidth={1.5} />
+                </a>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Error Alert Banner when Audit Failed */}
-      {(audit.status === 'failed' || audit.error) && (
-        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-xs space-y-2 mb-6">
-          <div className="flex items-center space-x-2 font-bold text-rose-300 text-sm">
-            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
-            <span>Audit Execution Failed for Target Site</span>
+      {failed && (
+        <div
+          className="px-6 py-4 border-b border-line2 flex items-start gap-2.5"
+          style={{ background: 'color-mix(in srgb, var(--red) 10%, var(--bg))' }}
+        >
+          <AlertTriangle className="w-5 h-5 text-cred shrink-0 mt-0.5" strokeWidth={1.5} />
+          <div>
+            <div className="text-[13px] font-bold text-cred">
+              Audit Execution Failed for Target Site
+            </div>
+            <p className="text-[12.5px] text-bodyp mt-1">
+              {audit.error ||
+                'The target URL could not be audited or the pipeline service encountered an unhandled execution error.'}
+            </p>
           </div>
-          <p className="text-slate-300">
-            {audit.error || 'The target URL could not be audited or the pipeline service encountered an unhandled execution error.'}
-          </p>
         </div>
       )}
 
-      {/* Primary Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        
-        {/* Before vs After violations counter */}
-        <div className="glass-card rounded-xl p-4 border border-slate-800/80 relative overflow-hidden">
-          <div className="text-xs text-slate-400 font-medium mb-1">Measured axe-core Violations</div>
-          <div className="flex items-baseline space-x-3">
-            <span className="text-3xl font-black text-rose-400 line-through opacity-80">{before}</span>
-            <ArrowRight className="w-4 h-4 text-slate-500" />
-            <span className="text-3xl font-black text-emerald-400">{after}</span>
-          </div>
-          <div className="mt-2 flex items-center space-x-1.5 text-xs text-emerald-400 font-semibold">
-            <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
-              -{reductionPercentage}% violations
+      {/* Metric grid — cells split by 1px --line */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line">
+        <Metric label="Measured axe-core Violations" note={`${fixedCount} violations resolved`}>
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <span className="font-display text-[46px] leading-none font-bold tracking-[-0.5px] text-cred line-through decoration-[3px]">
+              {beforeN}
+            </span>
+            <ArrowRight className="w-4 h-4 text-bodyp shrink-0" strokeWidth={1.5} />
+            <span className="font-display text-[46px] leading-none font-bold tracking-[-0.5px] text-cgreen">
+              {afterN}
+            </span>
+            <span className="font-mono text-[11px] font-bold text-cgreen border border-green px-1.5 py-0.5">
+              −{reductionPercentage}% violations
             </span>
           </div>
-        </div>
+        </Metric>
 
-        {/* Verified Fixes Count */}
-        <div className="glass-card rounded-xl p-4 border border-slate-800/80">
-          <div className="text-xs text-slate-400 font-medium mb-1 flex items-center justify-between">
-            <span>Verified Fixes</span>
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-3xl font-black text-white">{verifiedCount}</div>
-          <div className="mt-2 text-xs text-slate-400">
-            100% axe-core re-run verified
-          </div>
-        </div>
+        <Metric
+          label="Verified Fixes"
+          note="100% axe-core re-run verified"
+          icon={<CheckCircle className="w-4 h-4 text-green" strokeWidth={1.5} />}
+        >
+          <span className="font-display text-[46px] leading-none font-bold tracking-[-0.5px] text-head">
+            {verifiedN}
+          </span>
+        </Metric>
 
-        {/* Human Action Required Count */}
-        <div className="glass-card rounded-xl p-4 border border-amber-500/20 bg-amber-500/5">
-          <div className="text-xs text-amber-300 font-medium mb-1 flex items-center justify-between">
-            <span>Action Required</span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="text-3xl font-black text-amber-400">{humanInputCount}</div>
-          <div className="mt-2 text-xs text-amber-200/70">
-            Requires Human Input (`alt` / context)
-          </div>
-        </div>
+        <Metric
+          label="Action Required"
+          note="Requires Human Input (`alt` / context)"
+          tinted
+          icon={<AlertTriangle className="w-4 h-4 text-yellow" strokeWidth={1.5} />}
+        >
+          <span className="font-display text-[46px] leading-none font-bold tracking-[-0.5px] text-cyellow">
+            {humanN}
+          </span>
+        </Metric>
 
-        {/* Pages Scanned */}
-        <div className="glass-card rounded-xl p-4 border border-slate-800/80">
-          <div className="text-xs text-slate-400 font-medium mb-1 flex items-center justify-between">
-            <span>Pages Audited</span>
-            <FileText className="w-4 h-4 text-indigo-400" />
-          </div>
-          <div className="text-3xl font-black text-white">{audit.pageCount}</div>
-          <div className="mt-2 text-xs text-slate-400">
-            Intake & Playwright Capture
-          </div>
-        </div>
-
+        <Metric
+          label="Pages Audited"
+          note="Intake & Playwright Capture"
+          icon={<FileText className="w-4 h-4 text-blue" strokeWidth={1.5} />}
+        >
+          <span className="font-display text-[46px] leading-none font-bold tracking-[-0.5px] text-head">
+            {pagesN}
+          </span>
+        </Metric>
       </div>
 
-      {/* Claim Discipline Footer Disclaimer */}
-      <div className="flex items-center space-x-2 text-xs text-slate-400 bg-slate-900/60 rounded-lg p-3 border border-slate-800">
-        <ShieldAlert className="w-4 h-4 text-indigo-400 shrink-0" />
+      <div className="bg-sunk border-t border-line2 px-6 py-3 flex items-start gap-2 text-[12px] text-bodyp">
+        <ShieldAlert className="w-4 h-4 text-ccyan shrink-0 mt-0.5" strokeWidth={1.5} />
         <span>
-          <strong className="text-slate-200">Claim discipline:</strong> A11ySentinel <em>finds</em>, <em>prioritises</em>, <em>drafts</em>, and <em>verifies</em> fixes under human review.
+          <strong className="text-head font-semibold">Claim discipline:</strong> A11ySentinel{' '}
+          <em>finds</em>, <em>prioritises</em>, <em>drafts</em>, and <em>verifies</em> fixes under
+          human review.
         </span>
       </div>
-
-    </div>
+    </section>
   );
 };

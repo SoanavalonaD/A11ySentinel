@@ -1,44 +1,72 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  // The theme is carried by [data-theme] on <html>, not by a `dark` class.
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#f0f4ff',
-          100: '#e0e9fe',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          900: '#1e1b4b',
-        },
-        sentinel: {
-          bg: '#0a0d14',
-          card: '#121723',
-          border: '#1f293d',
-          accent: '#10b981',
-          danger: '#ef4444',
-          warning: '#f59e0b',
-        }
+        // Surfaces and ink.
+        bg: 'var(--bg)',
+        panel: 'var(--panel)',
+        sunk: 'var(--sunk)',
+        code: 'var(--code)',
+        head: 'var(--head)',
+        body: 'var(--body)',
+        bodyp: 'var(--bodyp)',
+        line: 'var(--line)',
+        line2: 'var(--line2)',
+        plate: 'var(--plate)',
+        'on-plate': 'var(--on-plate)',
+
+        // Canonical accents — fills, icons, borders, chart marks.
+        green: 'var(--green)',
+        blue: 'var(--blue)',
+        cyan: 'var(--cyan)',
+        yellow: 'var(--yellow)',
+        orange: 'var(--orange)',
+        red: 'var(--red)',
+        violet: 'var(--violet)',
+        magenta: 'var(--magenta)',
+
+        // Button fills.
+        'fill-blue': 'var(--fill-blue)',
+        'fill-blue-h': 'var(--fill-blue-h)',
+        'fill-yellow': 'var(--fill-yellow)',
+        'fill-yellow-h': 'var(--fill-yellow-h)',
+        'on-fill': 'var(--on-fill)',
+
+        // Accent-as-text ramp. Use these whenever an accent carries words.
+        cgreen: 'var(--cgreen)',
+        cblue: 'var(--cblue)',
+        ccyan: 'var(--ccyan)',
+        cyellow: 'var(--cyellow)',
+        corange: 'var(--corange)',
+        cred: 'var(--cred)',
+        cviolet: 'var(--cviolet)',
+        cmagenta: 'var(--cmagenta)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        // Wordmark, report kicker and large metric numerals only.
+        display: ['Chakra Petch', 'Inter', 'system-ui', 'sans-serif'],
       },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'glow': 'glow 2s ease-in-out infinite alternate',
+      borderRadius: {
+        // Square corners everywhere. Kept as explicit overrides so a stray
+        // `rounded-xl` in future work resolves to 0 rather than reintroducing
+        // the old shape language.
+        none: '0',
+        sm: '0',
+        DEFAULT: '0',
+        md: '0',
+        lg: '0',
+        xl: '0',
+        '2xl': '0',
+        '3xl': '0',
+        full: '9999px',
       },
-      keyframes: {
-        glow: {
-          '0%': { boxShadow: '0 0 15px rgba(99, 102, 241, 0.2)' },
-          '100%': { boxShadow: '0 0 30px rgba(99, 102, 241, 0.5)' },
-        }
-      }
     },
   },
   plugins: [],
-}
+};
