@@ -79,7 +79,7 @@ function generateCustomMockResponse(targetUrl: string): AuditResultResponse {
       pageCount: 3,
       violationsBefore: 18,
       violationsAfter: 2,
-      proxyUrl: `https://proxy-demo.run.app/${auditId}`,
+      proxyUrl: `/proxy/${auditId}`,
       emailStatus: 'draft',
       error: null,
     },
