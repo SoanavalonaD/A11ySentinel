@@ -36,14 +36,16 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({
             <span className="text-slate-600">•</span>
             <span>{new Date(audit.createdAt).toLocaleString('en-US')}</span>
 
-            {/* Email Status Badge */}
+            {/* Audit Status / Email Status Badge */}
             <span className="text-slate-600">•</span>
             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-              emailStatus === 'sent' 
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+              audit.status === 'failed'
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                : emailStatus === 'sent' 
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                  : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
             }`}>
-              Email: {emailStatus}
+              {audit.status === 'failed' ? 'STATUS: FAILED' : `Email: ${emailStatus}`}
             </span>
           </div>
           <h2 className="text-2xl font-extrabold text-white flex items-center space-x-3">
@@ -52,41 +54,56 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({
         </div>
 
         {/* Action Buttons: Report & Live Proxy Preview & Email Gate */}
-        <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-2">
-          <button
-            onClick={onOpenReport}
-            className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 transition"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Generate Report</span>
-          </button>
-
-          <button
-            onClick={onOpenEmailModal}
-            className={`inline-flex items-center space-x-2 px-4 py-3 rounded-xl font-bold text-sm shadow-lg transition border ${
-              emailStatus === 'sent'
-                ? 'bg-slate-800 text-emerald-400 border-emerald-500/30'
-                : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white border-amber-500/30 shadow-amber-600/20'
-            }`}
-          >
-            {emailStatus === 'sent' ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Mail className="w-4 h-4" />}
-            <span>{emailStatus === 'sent' ? 'Email Sent' : 'Email Report (Human Gate)'}</span>
-          </button>
-
-          {audit.proxyUrl && (
-            <a
-              href={audit.proxyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition group"
+        {audit.status !== 'failed' && (
+          <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-2">
+            <button
+              onClick={onOpenReport}
+              className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 transition"
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Preview Corrected Site (Live Proxy)</span>
-              <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
-            </a>
-          )}
-        </div>
+              <FileText className="w-4 h-4" />
+              <span>Generate Report</span>
+            </button>
+
+            <button
+              onClick={onOpenEmailModal}
+              className={`inline-flex items-center space-x-2 px-4 py-3 rounded-xl font-bold text-sm shadow-lg transition border ${
+                emailStatus === 'sent'
+                  ? 'bg-slate-800 text-emerald-400 border-emerald-500/30'
+                  : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white border-amber-500/30 shadow-amber-600/20'
+              }`}
+            >
+              {emailStatus === 'sent' ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Mail className="w-4 h-4" />}
+              <span>{emailStatus === 'sent' ? 'Email Sent' : 'Email Report (Human Gate)'}</span>
+            </button>
+
+            {audit.proxyUrl && (
+              <a
+                href={audit.proxyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition group"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Preview Corrected Site (Live Proxy)</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Error Alert Banner when Audit Failed */}
+      {(audit.status === 'failed' || audit.error) && (
+        <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 text-xs space-y-2 mb-6">
+          <div className="flex items-center space-x-2 font-bold text-rose-300 text-sm">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+            <span>Audit Execution Failed for Target Site</span>
+          </div>
+          <p className="text-slate-300">
+            {audit.error || 'The target URL could not be audited or the pipeline service encountered an unhandled execution error.'}
+          </p>
+        </div>
+      )}
 
       {/* Primary Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -12,6 +12,7 @@ import { LiveProgressTracker } from './components/LiveProgressTracker';
 import { HumanGuidanceModal } from './components/HumanGuidanceModal';
 import { RemediationReport } from './components/RemediationReport';
 import { EmailApprovalModal } from './components/EmailApprovalModal';
+import { AgentAuditLogs } from './components/AgentAuditLogs';
 
 import { ShieldCheck, Layers, AlertCircle, FileCheck2, Code2 } from 'lucide-react';
 
@@ -19,6 +20,10 @@ export const App: React.FC = () => {
   const [activeAudit, setActiveAudit] = useState<Audit>(SAMPLE_FIXTURE.audit);
   const [findings, setFindings] = useState<Finding[]>(SAMPLE_FIXTURE.findings);
   const [activeFixtureName, setActiveFixtureName] = useState<'sample' | 'demo' | 'custom'>('sample');
+
+  const [activeNotes, setActiveNotes] = useState<string[] | undefined>(SAMPLE_FIXTURE.notes);
+  const [activeWrite, setActiveWrite] = useState(SAMPLE_FIXTURE.write);
+  const [activeLogs, setActiveLogs] = useState(SAMPLE_FIXTURE.auditLogs);
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedHumanFinding, setSelectedHumanFinding] = useState<Finding | null>(null);
@@ -39,9 +44,15 @@ export const App: React.FC = () => {
     if (fixtureName === 'sample') {
       setActiveAudit(SAMPLE_FIXTURE.audit);
       setFindings(SAMPLE_FIXTURE.findings);
+      setActiveNotes(SAMPLE_FIXTURE.notes);
+      setActiveWrite(SAMPLE_FIXTURE.write);
+      setActiveLogs(SAMPLE_FIXTURE.auditLogs);
     } else {
       setActiveAudit(DEMO_SITE_FIXTURE.audit);
       setFindings(DEMO_SITE_FIXTURE.findings);
+      setActiveNotes(DEMO_SITE_FIXTURE.notes);
+      setActiveWrite(DEMO_SITE_FIXTURE.write);
+      setActiveLogs(DEMO_SITE_FIXTURE.auditLogs);
     }
   };
 
@@ -89,11 +100,11 @@ export const App: React.FC = () => {
     try {
       const result = await runAuditApi(payload);
       setTimeout(() => {
-        setActiveAudit({
-          ...result.audit,
-          status: 'complete'
-        });
+        setActiveAudit(result.audit);
         setFindings(result.findings);
+        if (result.notes) setActiveNotes(result.notes);
+        if (result.write) setActiveWrite(result.write);
+        if (result.auditLogs) setActiveLogs(result.auditLogs);
         setIsLoading(false);
       }, 3800);
     } catch (err) {
@@ -225,6 +236,14 @@ export const App: React.FC = () => {
             </div>
           )}
         </section>
+
+        {/* Agent Audit Logs & Pipeline Decision Trail */}
+        <AgentAuditLogs
+          auditLogs={activeLogs}
+          notes={activeNotes}
+          write={activeWrite}
+        />
+
       </main>
       )}
 
