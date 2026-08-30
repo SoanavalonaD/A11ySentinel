@@ -1,12 +1,16 @@
 # A11ySentinel — Data Contract
 
-**Status:** draft 6, awaiting Partner sign-off.
+**Status:** draft 7, awaiting Partner sign-off.
 Draft 2 added `status`. Draft 3 added `announcedBefore` / `announcedAfter`.
 **Draft 4 renames `rgaaCriterion`** — see "Standards" below. That one is a
 breaking change; the others were additive.
 **Draft 5 adds `remediating` and `verifying`** to the audit `status` enum,
 answering open question 1. Additive.
 **Draft 6 adds `auditLogs`** to the audit response. Additive.
+**Draft 7 writes the response envelope down** — section 3. It documents
+`auditLogs`, `notes` and `write`, which were already being returned but were
+never in this file, and adds `emailDraft` from Agent 8. Additive, and nothing
+in the envelope is persisted to Firestore.
 **Authoritative.** If this file and any other document disagree, this file wins.
 
 The pipeline **writes**. The web layer **reads**. Neither side waits for the
@@ -59,7 +63,7 @@ audits/{auditId}/findings/{findingId}   <- subcollection, one doc per finding
 | `violationsBefore` | int | pipeline | Total axe violations across all pages, pre-fix. |
 | `violationsAfter` | int or null | pipeline | Post-patch re-run. **Null until verification completes** — render as "pending", not as 0. |
 | `proxyUrl` | string or null | **web** | Web layer writes this once the proxy can serve the audit. |
-| `emailStatus` | enum | **web** | `draft`, `approved`, `sent`. Never leaves `draft` without a human click. |
+| `emailStatus` | enum | **web** | `draft`, `approved`, `sent`. Never leaves `draft` without a human click. **`approved` means a human signed off and nothing was dispatched** — it is the resting state while no mail transport is configured. `sent` is written only when a transport confirms delivery, so it is never a guess. |
 | `error` | string or null | pipeline | Human-readable reason when `status = failed`. |
 
 **`violationsBefore` to `violationsAfter` is the demo centrepiece.** Both are
@@ -126,6 +130,91 @@ counts of *verified* axe violations, so the numbers are defensible on camera.
 | `screenshotRef` | string or null | `gs://` URI. |
 | `announcedBefore` | string or null | What assistive technology announced for this element before the fix. |
 | `announcedAfter` | string or null | What it announces after. **Always null together with `announcedBefore`** — see below for when. |
+
+---
+
+## 3. Response envelope — `POST /audit`, not persisted
+
+Firestore holds two things: the audit document and its findings subcollection.
+The `/audit` response carries those **plus four keys that are not stored
+anywhere.** They describe how one run went, so they belong to the response, not
+to the record.
+
+```json
+{
+  "audit": { ... },
+  "findings": [ ... ],
+  "notes": ["VisualAuditor: discarded `div > span.badge` — DOM match count 0"],
+  "auditLogs": [ { "logId": "log_aud_abc123_004", "agentName": "TriageAgent", "level": "info", ... } ],
+  "write": { "findingsWritten": 41, "findingsRejected": [] },
+  "emailDraft": { ... }
+}
+```
+
+| Key | Type | Notes |
+|---|---|---|
+| `notes` | string[] | Human-readable decision trail. What a report quotes. |
+| `auditLogs` | object[] | The same events with `agentName`, `level` and `stage` kept separate, so the UI can filter. Emitted from the same call site as `notes`, so the two cannot drift. |
+| `write` | object or absent | Present only when `PERSIST_TO_FIRESTORE` is on. Carries `findingsWritten` and `findingsRejected`. |
+| `emailDraft` | object or null | Agent 8's output. Null when the agent did not run. |
+
+`auditLogs[].agentName` is one of the **eight** agent names: `RootOrchestrator`,
+`RuleAuditor`, `VisualAuditor`, `TriageAgent`, `RemediationFanOut`,
+`Remediator`, `Verifier`, `OutreachDrafter`. `level` is one of `info`,
+`success`, `warn`, `error`.
+
+### `emailDraft` — Agent 8, the OutreachDrafter
+
+Written only when the request sets `draftEmail: true`. It is **a proposal, not
+a message.** The human approval gate in the dashboard is unchanged and is still
+the only thing that can send anything.
+
+```json
+{
+  "drafted": true,
+  "modelUsed": true,
+  "opening": "We ran an automated accessibility audit on your site without being asked, and wanted to share what it found.",
+  "highlights": [
+    {
+      "findingId": "f_001",
+      "sentence": "Someone using a screen reader reaches your contact form and hears only 'button', with no way to tell what it does."
+    }
+  ],
+  "closing": "The full report is below if it is useful to you.",
+  "language": "fr",
+  "reason": null,
+  "screened": "Model Armor screened 3 text blocks: no prompt injection or malicious content detected"
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `drafted` | bool | **Branch on this.** False means "use the static template" — a normal outcome, not an error. |
+| `modelUsed` | bool | False whenever `drafted` is false. |
+| `opening` | string or null | One or two sentences. Null when `drafted` is false. |
+| `highlights` | array | At most 3. Each `findingId` is **guaranteed to exist** in this audit's findings — ungrounded ones are dropped before the response is built. |
+| `closing` | string or null | One sentence. |
+| `language` | string or null | The audited page's language. The narrative is written in it. |
+| `reason` | string or null | Non-null **if and only if** `drafted` is false. Says why — model failure, an ungrounded highlight, or a claim-discipline refusal. |
+| `screened` | string or null | What Model Armor said about the input, or why it was not consulted. |
+
+**What the model does not write, and the web layer must keep templating:**
+the metrics, every link, the claim-discipline notice, the opt-out footer and
+the subject line. Those carry claims, so they are never model output. Agent 8
+writes prose and nothing else.
+
+**`drafted: false` is common and expected.** Any of these produce it, and in
+every case the correct behaviour is to send the existing static template:
+
+1. The model call failed or returned malformed JSON.
+2. No highlight cited a `findingId` we actually supplied.
+3. The draft broke claim discipline — it mentioned compliance, liability,
+   litigation, a penalty, a deadline, a guarantee, or claimed the site is now
+   fixed. Such a draft is **discarded whole**, never partially used.
+
+So: **never render `emailDraft` fields without checking `drafted` first**, and
+never fall back to showing `reason` to a recipient — it is diagnostic text for
+the dashboard, not email copy.
 
 ---
 
@@ -355,7 +444,13 @@ A `detected` finding renders as "we found this" with no diff. Only a
    set while `regionalCriterion` is null; that pairing is expected, not a bug.
    If a null breaks a table column for you, say so.
 
-4. **Draft 4 renamed `rgaaCriterion`.** It is the only breaking change so far.
+4. **`emailDraft` is not persisted (draft 7).** It rides on the `/audit`
+   response only, so a dashboard that reloads from Firestore loses it and
+   falls back to the static template. That is safe but lossy. If you want the
+   approver to be able to come back to a drafted email in a later session,
+   say so and I will add it to the audit document.
+
+5. **Draft 4 renamed `rgaaCriterion`.** It is the only breaking change so far.
    If you had a column bound to it, it is now two fields. Sorry for the churn —
    we moved to WCAG-first framing, and a field named after one country's
    framework did not survive that.

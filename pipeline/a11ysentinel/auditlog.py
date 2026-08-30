@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
 
-# Mirrors AgentName in the web schema. The seven agents, no more.
+# Mirrors AgentName in the web schema. The eight agents, no more.
 AgentName = Literal[
     "RootOrchestrator",
     "RuleAuditor",
@@ -30,6 +30,7 @@ AgentName = Literal[
     "RemediationFanOut",
     "Remediator",
     "Verifier",
+    "OutreachDrafter",
 ]
 
 # Mirrors LogLevel. `success` is deliberately distinct from `info`: a verified

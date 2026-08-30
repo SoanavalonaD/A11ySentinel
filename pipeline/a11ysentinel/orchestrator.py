@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 from . import auditlog as auditlog_mod
 from . import capture as capture_mod
+from . import outreach as outreach_mod
 from . import jurisdiction as jurisdiction_mod
 from . import rule_auditor, verifier
 from .models import Audit, AuditStatus, Finding, Trigger
@@ -40,6 +41,9 @@ class AuditResult:
     findings: list[Finding] = field(default_factory=list)
     discards: list[str] = field(default_factory=list)
     log: auditlog_mod.AuditLog | None = None
+    # Agent 8's narrative, or a draft that says why there isn't one. Never
+    # None — `drafted=False` is the instruction to use the static template.
+    email_draft: outreach_mod.EmailDraft | None = None
 
     def note(
         self,
@@ -70,6 +74,9 @@ class AuditResult:
             "audit": self.audit.to_firestore(),
             "findings": [f.to_firestore() for f in self.findings],
             "auditLogs": self.log.to_contract() if self.log else [],
+            "emailDraft": (
+                self.email_draft.to_contract() if self.email_draft else None
+            ),
         }
 
 
@@ -83,6 +90,7 @@ async def run_audit(
     remediation_limit: int | None = 12,
     model_triage: bool = False,
     visual: bool = False,
+    draft_email: bool = False,
     on_status: Callable[[Audit], None] | None = None,
 ) -> AuditResult:
     """Single-page Stage 1 audit, end to end.
@@ -98,6 +106,8 @@ async def run_audit(
         createdAt=_now_iso(),
     )
     result = AuditResult(audit=audit, log=auditlog_mod.AuditLog(audit.auditId))
+    # Captured inside the browser session so agent 8 can run after it closes.
+    draft_inputs: tuple[str, str | None] | None = None
 
     def advance(status: AuditStatus) -> None:
         """Move to the next stage and let the caller persist it.
@@ -340,6 +350,48 @@ async def run_audit(
             for finding in findings:
                 if finding.status is FindingStatus.PATCHED:
                     finding.revert_to_detected()
+
+            draft_inputs = (page_capture.url, page_capture.language)
+
+        # Agent 8. Runs last, on the settled result, so the narrative can only
+        # describe findings that survived verification. A failure here costs
+        # the prose and nothing else: the draft carries `drafted=False` and the
+        # email still goes out on the static template.
+        if draft_email and draft_inputs is not None:
+            page_url, page_lang = draft_inputs
+            result.email_draft = await outreach_mod.draft(
+                result.findings, target_url=page_url, language=page_lang
+            )
+            drafted = result.email_draft
+            if drafted.screened:
+                result.note(
+                    "OutreachDrafter",
+                    "info",
+                    "Screened the draft input before prompting",
+                    details=drafted.screened,
+                    stage="complete",
+                )
+            if drafted.drafted:
+                result.note(
+                    "OutreachDrafter",
+                    "success",
+                    f"Drafted email narrative citing "
+                    f"{len(drafted.highlights)} finding(s)",
+                    details=(
+                        "Claim-discipline screen passed. Numbers, links and the "
+                        "opt-out footer stay templated; nothing sends without a "
+                        "human click."
+                    ),
+                    stage="complete",
+                )
+            else:
+                result.note(
+                    "OutreachDrafter",
+                    "warn",
+                    "No drafted narrative; the static template will be used",
+                    details=drafted.reason,
+                    stage="complete",
+                )
 
         audit.completedAt = _now_iso()
         advance(AuditStatus.COMPLETE)

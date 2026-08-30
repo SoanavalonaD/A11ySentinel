@@ -154,11 +154,18 @@ export async function renderPatchedProxyPage(options: ProxyRenderOptions): Promi
  * Fallback HTML template for demo target URLs when network fetch is offline
  */
 function getMockTargetHtml(url: string): string {
+  let hostname = 'Target Site';
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    hostname = url || 'Target Site';
+  }
+
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Marché Antsahabe — Demo Target</title>
+  <title>${hostname} — Target Site Preview</title>
   <style>
     body { font-family: sans-serif; margin: 0; padding: 20px; background: #f8fafc; color: #1e293b; }
     header { background: #1e1b4b; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -173,41 +180,41 @@ function getMockTargetHtml(url: string): string {
 </head>
 <body>
   <header>
-    <h1>Marché Antsahabe — Épicerie Fine & Produits Locaux</h1>
+    <h1>${hostname} — Target Website</h1>
     <form style="margin-top: 10px;">
-      <input type="text" id="site-search-input" placeholder="Rechercher un produit...">
+      <input type="text" id="site-search-input" placeholder="Search site...">
       <button type="submit" class="btn-primary">Search</button>
     </form>
   </header>
 
   <main>
-    <section className="hero">
-      <h2>Nos produits frais du jour</h2>
-      <a href="/produits.html" class="btn-link-action">cliquez ici</a>
+    <section class="hero">
+      <h2>Featured Products & Services</h2>
+      <a href="/products.html" class="btn-link-action">click here</a>
     </section>
 
     <section class="team">
-      <h3>Notre équipe</h3>
+      <h3>About Our Team</h3>
       <figure>
         <img src="/img/team-photo-final-v2.jpg" class="team-hero">
       </figure>
     </section>
 
-    <section className="pricing">
+    <section class="pricing">
       <div class="pricing-grid">
-        <div class="card"><h3>Standard</h3><p class="price">$10/mo</p></div>
-        <div class="card card--featured"><h3>Pro</h3><p class="price">$29/mo</p></div>
+        <div class="card"><h3>Standard Plan</h3><p class="price">$10/mo</p></div>
+        <div class="card card--featured"><h3>Pro Plan</h3><p class="price">$29/mo</p></div>
       </div>
     </section>
 
     <form id="contact" style="margin-top: 20px;">
-      <h3>Formulaire de contact</h3>
+      <h3>Contact Us</h3>
       <button class="btn-primary" type="submit"><i class="icon-send"></i></button>
     </form>
   </main>
 
   <footer>
-    <p class="legal">© 2026 Marché Antsahabe Ltd.</p>
+    <p class="legal">© 2026 ${hostname} Inc. All rights reserved.</p>
   </footer>
 </body>
 </html>`;

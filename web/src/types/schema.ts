@@ -73,7 +73,8 @@ export type AgentName =
   | 'TriageAgent' 
   | 'RemediationFanOut' 
   | 'Remediator' 
-  | 'Verifier';
+  | 'Verifier'
+  | 'OutreachDrafter';
 
 export type LogLevel = 'info' | 'success' | 'warn' | 'error';
 
@@ -93,10 +94,41 @@ export interface AuditWriteReport {
   error?: string;
 }
 
+/**
+ * Agent 8's narrative. A proposal, never a message — the human approval gate
+ * is still the only thing that can dispatch anything.
+ *
+ * `drafted: false` is a normal outcome, not an error: it means the model
+ * failed, cited a finding we never supplied, or broke claim discipline, and
+ * the static template should be used instead. Never render these fields
+ * without checking `drafted` first, and never show `reason` to a recipient —
+ * it is diagnostic text for the dashboard.
+ *
+ * What the model does NOT write, and the template must keep owning: the
+ * metrics, every link, the claim-discipline notice, the opt-out footer and
+ * the subject line.
+ */
+export interface EmailDraftHighlight {
+  findingId: string;
+  sentence: string;
+}
+
+export interface EmailDraft {
+  drafted: boolean;
+  modelUsed: boolean;
+  opening: string | null;
+  highlights: EmailDraftHighlight[];
+  closing: string | null;
+  language: string | null;
+  reason: string | null;
+  screened: string | null;
+}
+
 export interface AuditResultResponse {
   audit: Audit;
   findings: Finding[];
   notes?: string[];
   write?: AuditWriteReport;
+  emailDraft?: EmailDraft | null;
   auditLogs?: AgentAuditLogEntry[];
 }

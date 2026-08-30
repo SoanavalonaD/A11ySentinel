@@ -3,12 +3,12 @@
 Three different things in this project get called "agent". Keeping them separate stops the confusion.
 
 - **Services** — Cloud Run deployments. Infrastructure, not agents.  
-- **Agents** — ADK constructs inside the orchestrator. Seven of them.  
+- **Agents** — ADK constructs inside the orchestrator. Eight of them.  
 - **Tools** — plain Python functions agents call. Not agents.
 
 ---
 
-## The 7 ADK Agents
+## The 8 ADK Agents
 
 | \# | Agent | ADK type | Input | Output | Gemini | Owner |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
@@ -19,13 +19,21 @@ Three different things in this project get called "agent". Keeping them separate
 | 5 | `RemediationFanOut` | `ParallelAgent` | Finding\[\] | dispatches one Remediator per finding | no | **L** |
 | 6 | `Remediator` | `LlmAgent` | 1 finding \+ DOM context \+ framework | patch JSON | **yes** | **L** |
 | 7 | `Verifier` | Custom | patched DOM | verified flag \+ violationsAfter | no | **L** |
+| 8 | `OutreachDrafter` | `LlmAgent` | top-ranked Finding\[\] \+ page language | email narrative JSON | **yes** | **L** |
 
 **L** \= Lewis (pipeline) · **P** \= Partner
 
-**Status: all seven are built and deployed.** Agent 3 was the one open
-handoff; it stayed with Lewis. It is a `BaseAgent` rather than an `LlmAgent`
-because it needs to validate every returned selector against the live DOM
-before a finding is kept, and that check has to sit in code.
+**Status: all eight are built.** Agents 1–7 are deployed. Agent 3 was the one
+open handoff; it stayed with Lewis. It is a `BaseAgent` rather than an
+`LlmAgent` because it needs to validate every returned selector against the
+live DOM before a finding is kept, and that check has to sit in code.
+
+**Agent 8 was added after the original seven.** The outreach email had been a
+template literal in the web layer — every recipient got identical prose with
+four numbers swapped in — which threw away the one thing in the report that
+argues for itself: `userImpact`, the plain-language sentence about what a
+person cannot do. It is off by default (`draftEmail`), and a failed draft is a
+normal outcome that falls back to the static template.
 
 ### Detail per agent
 
@@ -43,6 +51,17 @@ before a finding is kept, and that check has to sit in code.
 
 **7\. Verifier** — Applies each patch to the DOM snapshot, re-runs axe, confirms the violation is gone and nothing new appeared. Sets `verified`. **Nothing unverified reaches the proxy or the report.** This produces the 47 → 6 number that is the centrepiece of the demo.
 
+**8\. OutreachDrafter** — Writes the narrative part of the audit email: an opening, up to three consequence sentences grounded in specific findings, and a closing. Runs last, on the settled result, so it can only describe findings that survived verification.
+
+**This is the only agent whose output leaves the building, and it writes for an unsolicited message.** Everywhere else a model is wrong in private and a human sees it in a dashboard first; here it would be wrong in someone else's inbox, about their legal exposure, under our name. That is the exact failure mode behind the overlay industry's reputation and accessiBe's $1M FTC settlement. So the model gets the narrowest possible job:
+
+- It writes prose only. **The numbers, links, metrics table, claim-discipline notice, opt-out footer and subject line are never generated** — they are fixed template text assembled around its words, so the parts of the email that carry a claim are not model output at all.
+- Every highlight must cite a `findingId` that was supplied. An invented id is dropped, not trusted.
+- `outreach.screen()` then runs over the whole body in code. A draft mentioning compliance, liability, litigation, a penalty, a deadline, a guarantee, or a claim that the site is fixed is **discarded whole** — not edited, because a model that reached for "you may be liable" once has probably reached for the adjacent idea elsewhere in the same draft.
+- It writes in the audited page's language, same as the Remediator (hard rule 5).
+
+A prompt asks; `screen()` decides. The guards are covered by `tests/test_outreach_guards.py`, which runs with no network. **Nothing here sends anything** — the human approval gate in the dashboard is unchanged and is still the only thing that can put this in front of a person.
+
 ---
 
 ## Ship order
@@ -55,6 +74,7 @@ Build in this sequence. Each stage is demoable on its own, so if you run out of 
 | 2 | \+ 6 | Real code patches, proxy works |
 | 3 | \+ 3 | Multimodal findings axe cannot catch |
 | 4 | \+ 4, 5 | Prioritised output, true parallelism |
+| 5 | \+ 8 | Outreach email drafted from the findings, behind the approval gate |
 
 Stage 1 is your floor. If everything else fails, you still have a deployed agent producing verifiable numbers on Google Cloud.
 

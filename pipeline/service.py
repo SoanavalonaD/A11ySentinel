@@ -75,6 +75,10 @@ class AuditRequest(BaseModel):
     remediationLimit: int = 12
     modelTriage: bool = False
     visual: bool = False
+    # Agent 8. Off by default: it costs quota, and an audit is useful without
+    # an email. The draft it returns is a proposal — the human approval gate
+    # in the dashboard is still the only thing that can send anything.
+    draftEmail: bool = False
 
     @field_validator("url")
     @classmethod
@@ -136,6 +140,7 @@ async def _run_and_persist(
     limit: int = 12,
     triage: bool = False,
     visual: bool = False,
+    draft_email: bool = False,
 ) -> dict[str, Any]:
     # Write each stage transition as it happens, so a dashboard polling the
     # audit document sees live progress. The audit spends most of its time in
@@ -160,6 +165,7 @@ async def _run_and_persist(
         remediation_limit=limit or None,
         model_triage=triage,
         visual=visual,
+        draft_email=draft_email,
         on_status=record_progress,
     )
     payload = result.to_contract_json()
@@ -173,6 +179,11 @@ async def _run_and_persist(
     # report, `auditLogs` carries agent, level and stage separately so the
     # dashboard can filter. to_contract_json already emits auditLogs.
     payload["notes"] = result.discards
+    # `emailDraft.drafted == false` is a normal outcome, not an error: it tells
+    # the web layer to use the static template. Either way the approval gate
+    # is unchanged.
+    if result.email_draft is not None:
+        payload["emailDraft"] = result.email_draft.to_contract()
     for entry in (result.log.entries if result.log else []):
         log.info(
             "audit %s [%s] %s: %s",
@@ -212,6 +223,7 @@ async def audit(request: AuditRequest) -> dict[str, Any]:
         limit=request.remediationLimit,
         triage=request.modelTriage,
         visual=request.visual,
+        draft_email=request.draftEmail,
     )
 
 

@@ -3,7 +3,7 @@ import { AuditResultResponse } from '../types/schema';
 export const SAMPLE_FIXTURE: AuditResultResponse = {
   audit: {
     auditId: "aud_7f3c91",
-    targetUrl: "https://demo-target.a11ysentinel.dev",
+    targetUrl: "https://example.com",
     trigger: "manual",
     status: "complete",
     createdAt: "2026-08-29T14:00:00Z",
@@ -18,7 +18,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
   findings: [
     {
       findingId: "f_001",
-      pageUrl: "https://demo-target.a11ysentinel.dev/contact",
+      pageUrl: "https://example.com/contact",
       source: "axe",
       category: "button-name",
       wcagCriterion: "4.1.2",
@@ -45,7 +45,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       findingId: "f_002",
-      pageUrl: "https://demo-target.a11ysentinel.dev/about",
+      pageUrl: "https://example.com/about",
       source: "axe",
       category: "image-alt",
       wcagCriterion: "1.1.1",
@@ -72,7 +72,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       findingId: "f_003",
-      pageUrl: "https://demo-target.a11ysentinel.dev/pricing",
+      pageUrl: "https://example.com/pricing",
       source: "visual",
       category: "COLOUR_ONLY_MEANING",
       wcagCriterion: "1.4.1",
@@ -99,7 +99,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       findingId: "f_004",
-      pageUrl: "https://demo-target.a11ysentinel.dev/",
+      pageUrl: "https://example.com/",
       source: "axe",
       category: "color-contrast",
       wcagCriterion: "1.4.3",
@@ -142,7 +142,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
       timestamp: "2026-08-29T14:00:01Z",
       agentName: "RootOrchestrator",
       level: "info",
-      message: "Session initialised. Starting 7-agent ADK pipeline for target https://demo-target.a11ysentinel.dev.",
+      message: "Session initialised. Starting 7-agent ADK pipeline for target https://example.com.",
       stage: "queued"
     },
     {
@@ -214,7 +214,32 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
       message: "Pipeline completed successfully. 4 verified patches written to Firestore. Status updated to complete.",
       stage: "complete"
     }
-  ]
+  ],
+  // Agent 8 accepted. Prose only — every number, link and the opt-out footer
+  // below it is template text.
+  emailDraft: {
+    drafted: true,
+    modelUsed: true,
+    opening:
+      "We ran an automated accessibility audit on example.com without being asked, and wanted to share the few things it found that affect people directly.",
+    highlights: [
+      {
+        findingId: "f_001",
+        sentence:
+          "Someone using a screen reader reaches the end of your contact form and hears only 'button', with no way to tell that it sends the message."
+      },
+      {
+        findingId: "f_002",
+        sentence:
+          "The pricing comparison image is announced only as 'image', so the figures it carries are lost to anyone not looking at the screen."
+      }
+    ],
+    closing: "The full report is below if it is useful to you.",
+    language: "en",
+    reason: null,
+    screened:
+      "Model Armor screened 6 text blocks: no prompt injection or malicious content detected"
+  }
 };
 
 export const DEMO_SITE_FIXTURE: AuditResultResponse = {
@@ -314,5 +339,19 @@ export const DEMO_SITE_FIXTURE: AuditResultResponse = {
       announcedBefore: "edit text: \"Search products...\"",
       announcedAfter: "edit text: \"Search products\""
     }
-  ]
+  ],
+  // Agent 8 refused. This is the fallback path: the email still goes out, on
+  // the static template, and the modal says why.
+  emailDraft: {
+    drafted: false,
+    modelUsed: false,
+    opening: null,
+    highlights: [],
+    closing: null,
+    language: "fr",
+    reason:
+      "draft refused, claim discipline: asserts compliance [fr] ('conforme'); raises litigation [fr] ('poursuites')",
+    screened:
+      "Model Armor screened 9 text blocks: no prompt injection or malicious content detected"
+  }
 };
