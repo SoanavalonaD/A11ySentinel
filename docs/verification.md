@@ -96,9 +96,20 @@ This document provides a comprehensive checklist to verify all frontend, dashboa
 - [ ] **Neutral Copy**: Contains no legal threats, urgency framing, or scare marketing. Describes findings, user impact, and verified patches.
 - [ ] **Visible Opt-Out Line**: Includes mandatory footer line (*"If you prefer not to receive accessibility audit reports for domain, click here to opt out"*).
 
+## 5. Architecture Diagram (Deliverable B5)
+
+### 5.1 Required Submission Artifact
+- [ ] **Document Location**: Document exists at `docs/architecture-diagram.md`.
+- [ ] **System Overview Diagram**: Clear Mermaid flowchart mapping Ingestion & Capture, Security Guardrails, 7 ADK Agents Pipeline, Firestore Persistence, and Delivery Layer.
+- [ ] **7 ADK Agents Sequence & Register**: Complete Mermaid sequence diagram and table detailing all 7 agents (`RootOrchestrator`, `RuleAuditor`, `VisualAuditor`, `TriageAgent`, `RemediationFanOut`, `Remediator`, `Verifier`).
+- [ ] **State Lifecycle Contract**: State diagram mapping `detected` → `patched` → `verified` / `dropped`.
+- [ ] **Security Defense Layers**: Ingestion guard architecture showing DOM Sanitisation, PII Redaction, Model Armor, Selector DOM validation, and Verifier write gate.
+- [ ] **Web & Delivery Component**: Architecture diagram for Proxy Engine, Report Generator, and Email Approval Gate.
+- [ ] **GCP Mapping Table**: Service mapping table (Cloud Run, Pub/Sub, Cloud Run Jobs, Model Armor, Vertex AI Gemini 3.7 Flash, Firestore, Cloud Storage).
+
 ---
 
-## 5. Verification Commands
+## 6. Verification Commands
 
 ### 3.1 Build & Type Check
 ```bash
