@@ -9,7 +9,17 @@ export interface AuditRequestPayload {
   draftEmail?: boolean;
 }
 
-const API_BASE_URL = 'https://a11ysentinel-pipeline-708226575684.us-central1.run.app';
+/**
+ * Where the pipeline lives. Defaults to the deployed Cloud Run service;
+ * point it at a local `uvicorn service:app` with VITE_API_BASE_URL to audit
+ * without deploying.
+ *
+ * Whichever it is, the service must allow this page's origin (ALLOWED_ORIGINS
+ * on the pipeline) or the browser blocks the request before it is sent.
+ */
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  'https://a11ysentinel-pipeline-708226575684.us-central1.run.app';
 
 /**
  * A request that did not produce an audit. Carries why, so the dashboard can

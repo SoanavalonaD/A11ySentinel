@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Dynamic Active Audit Site Badge */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-sunk border border-line2 text-[11px] whitespace-nowrap">
               <Globe className="w-3.5 h-3.5 text-cblue shrink-0" strokeWidth={1.5} />
-              <span className="text-bodyp font-medium">Audit cible :</span>
+              <span className="text-bodyp font-medium">Audit target:</span>
               <span className="font-mono font-semibold text-head truncate max-w-[200px]" title={targetUrl}>
                 {targetUrl || 'https://example.com'}
               </span>

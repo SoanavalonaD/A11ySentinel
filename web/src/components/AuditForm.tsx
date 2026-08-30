@@ -70,7 +70,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({ onRunAudit, isLoading }) =
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10.5px] font-bold uppercase tracking-[0.5px] text-bodyp">
-            Exemples d'URL :
+            Example URLs:
           </span>
           <button
             type="button"

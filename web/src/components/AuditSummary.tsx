@@ -228,7 +228,13 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({
 
         <Metric
           label="Verified Fixes"
-          note="100% axe-core re-run verified"
+          // "100% verified" beside a zero is a claim about nothing. Stage 1
+          // runs with remediation off and legitimately verifies no patches.
+          note={
+            verifiedCount > 0
+              ? 'Every one re-checked by axe-core'
+              : 'No patches verified in this run'
+          }
           icon={<CheckCircle className="w-4 h-4 text-green" strokeWidth={1.5} />}
         >
           <span className="font-display text-[46px] leading-none font-bold tracking-[-0.5px] text-head">
