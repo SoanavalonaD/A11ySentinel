@@ -84,9 +84,21 @@ This document provides a comprehensive checklist to verify all frontend, dashboa
 - [ ] **Print / Save as PDF**: Clicking **"Print / Save as PDF"** opens browser print dialog (`window.print()`) with print-optimized styles.
 - [ ] **Download Markdown (.md)**: Clicking **"Download Markdown (.md)"** downloads `A11ySentinel_Remediation_Report_${auditId}.md`.
 
+## 4. Email + Approval Gate (Deliverable B4)
+
+### 4.1 Human Approval Gate
+- [ ] **Initial State**: `emailStatus` starts as `"draft"`. No email is ever sent automatically upon audit completion.
+- [ ] **Approval Modal**: Clicking **"Email Report (Human Gate)"** in `AuditSummary` opens the `EmailApprovalModal`.
+- [ ] **Mandatory Confirmation Checkbox**: The **"Approve & Send Email"** button is disabled until the human user checks *"I have reviewed the email copy... and explicitly approve sending this audit report"*.
+- [ ] **State Transition**: Successfully dispatching the email transitions `emailStatus` from `"draft"` to `"sent"`, updating the UI badge to `Email: sent`.
+
+### 4.2 Neutral Language & Outreach Guards
+- [ ] **Neutral Copy**: Contains no legal threats, urgency framing, or scare marketing. Describes findings, user impact, and verified patches.
+- [ ] **Visible Opt-Out Line**: Includes mandatory footer line (*"If you prefer not to receive accessibility audit reports for domain, click here to opt out"*).
+
 ---
 
-## 4. Verification Commands
+## 5. Verification Commands
 
 ### 3.1 Build & Type Check
 ```bash

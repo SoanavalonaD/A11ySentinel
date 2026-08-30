@@ -1,19 +1,28 @@
 import React from 'react';
 import { Audit } from '../types/schema';
-import { ShieldCheck, ExternalLink, Globe, FileText, CheckCircle, AlertTriangle, ArrowRight, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, ExternalLink, Globe, FileText, CheckCircle, AlertTriangle, ArrowRight, ShieldAlert, Mail, CheckCheck } from 'lucide-react';
 
 interface AuditSummaryProps {
   audit: Audit;
   verifiedCount: number;
   humanInputCount: number;
   onOpenReport: () => void;
+  onOpenEmailModal: () => void;
 }
 
-export const AuditSummary: React.FC<AuditSummaryProps> = ({ audit, verifiedCount, humanInputCount, onOpenReport }) => {
+export const AuditSummary: React.FC<AuditSummaryProps> = ({ 
+  audit, 
+  verifiedCount, 
+  humanInputCount, 
+  onOpenReport,
+  onOpenEmailModal,
+}) => {
   const before = audit.violationsBefore;
   const after = audit.violationsAfter !== null ? audit.violationsAfter : before;
   const fixedCount = Math.max(0, before - after);
   const reductionPercentage = before > 0 ? Math.round((fixedCount / before) * 100) : 0;
+
+  const emailStatus = audit.emailStatus || 'draft';
 
   return (
     <div className="glass-panel rounded-2xl p-6 mb-8 border border-slate-800 shadow-xl relative overflow-hidden">
@@ -26,13 +35,23 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({ audit, verifiedCount
             <span>Audit ID: {audit.auditId}</span>
             <span className="text-slate-600">•</span>
             <span>{new Date(audit.createdAt).toLocaleString('en-US')}</span>
+
+            {/* Email Status Badge */}
+            <span className="text-slate-600">•</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+              emailStatus === 'sent' 
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+            }`}>
+              Email: {emailStatus}
+            </span>
           </div>
           <h2 className="text-2xl font-extrabold text-white flex items-center space-x-3">
             <span className="truncate max-w-xl">{audit.targetUrl}</span>
           </h2>
         </div>
 
-        {/* Action Buttons: Report & Live Proxy Preview */}
+        {/* Action Buttons: Report & Live Proxy Preview & Email Gate */}
         <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-2">
           <button
             onClick={onOpenReport}
@@ -40,6 +59,18 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({ audit, verifiedCount
           >
             <FileText className="w-4 h-4" />
             <span>Generate Report</span>
+          </button>
+
+          <button
+            onClick={onOpenEmailModal}
+            className={`inline-flex items-center space-x-2 px-4 py-3 rounded-xl font-bold text-sm shadow-lg transition border ${
+              emailStatus === 'sent'
+                ? 'bg-slate-800 text-emerald-400 border-emerald-500/30'
+                : 'bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white border-amber-500/30 shadow-amber-600/20'
+            }`}
+          >
+            {emailStatus === 'sent' ? <CheckCheck className="w-4 h-4 text-emerald-400" /> : <Mail className="w-4 h-4" />}
+            <span>{emailStatus === 'sent' ? 'Email Sent' : 'Email Report (Human Gate)'}</span>
           </button>
 
           {audit.proxyUrl && (

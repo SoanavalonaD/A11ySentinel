@@ -11,6 +11,7 @@ import { FindingCard } from './components/FindingCard';
 import { LiveProgressTracker } from './components/LiveProgressTracker';
 import { HumanGuidanceModal } from './components/HumanGuidanceModal';
 import { RemediationReport } from './components/RemediationReport';
+import { EmailApprovalModal } from './components/EmailApprovalModal';
 
 import { ShieldCheck, Layers, AlertCircle, FileCheck2, Code2 } from 'lucide-react';
 
@@ -21,6 +22,7 @@ export const App: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedHumanFinding, setSelectedHumanFinding] = useState<Finding | null>(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   // View mode: 'dashboard' | 'report'
   const [viewMode, setViewMode] = useState<'dashboard' | 'report'>('dashboard');
@@ -172,6 +174,7 @@ export const App: React.FC = () => {
             verifiedCount={verifiedCount}
             humanInputCount={humanCount}
             onOpenReport={() => setViewMode('report')}
+            onOpenEmailModal={() => setIsEmailModalOpen(true)}
           />
 
         {/* Filter Bar */}
@@ -229,6 +232,17 @@ export const App: React.FC = () => {
       <HumanGuidanceModal
         finding={selectedHumanFinding}
         onClose={() => setSelectedHumanFinding(null)}
+      />
+
+      {/* Deliverable B4 — Email Approval Modal */}
+      <EmailApprovalModal
+        audit={activeAudit}
+        findings={findings}
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        onEmailSent={() => {
+          setActiveAudit((prev) => ({ ...prev, emailStatus: 'sent' }));
+        }}
       />
 
       {/* Footer */}
