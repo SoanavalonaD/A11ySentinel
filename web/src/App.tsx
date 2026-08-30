@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Audit, EmailStatus, Finding, FindingSeverity, FindingSource } from './types/schema';
 import { SAMPLE_FIXTURE, DEMO_SITE_FIXTURE } from './data/sampleFixture';
 import { runAuditApi, AuditRequestPayload } from './services/api';
+import logoImg from './assets/logo.png';
 
 import { Navbar } from './components/Navbar';
 import { AuditForm } from './components/AuditForm';
@@ -283,7 +284,7 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-line2 bg-panel py-8 px-6 text-center text-[12px] text-bodyp space-y-2 print-hide">
         <div className="flex items-center justify-center gap-2 font-semibold text-head">
-          <ShieldCheck className="w-4 h-4 text-cgreen" strokeWidth={1.5} />
+          <img src={logoImg} alt="A11ySentinel Logo" className="w-5 h-5 object-contain" />
           <span>A11ySentinel — Google Cloud All Things Agentic Hackathon</span>
         </div>
         <p>

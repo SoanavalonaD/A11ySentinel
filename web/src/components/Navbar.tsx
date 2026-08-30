@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Sun, Moon, FileText, Cpu, ExternalLink, Globe } from 'lucide-react';
+import { Sun, Moon, FileText, Cpu, ExternalLink, Globe } from 'lucide-react';
+import logoImg from '../assets/logo.png';
 
 interface NavbarProps {
   onLoadFixture: (fixtureName: 'sample' | 'demo') => void;
@@ -57,8 +58,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Row 1 — brand and actions. Wraps as whole items rather than overflowing. */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 min-h-[66px] py-2">
           <div className="flex items-center gap-3 flex-[1_1_300px] min-w-0">
-            <span className="w-[34px] h-[34px] shrink-0 grid place-items-center bg-sunk border border-line2">
-              <ShieldCheck className="w-5 h-5 text-cblue" strokeWidth={1.5} />
+            <span className="w-[36px] h-[36px] shrink-0 grid place-items-center bg-sunk rounded overflow-hidden">
+              <img src={logoImg} alt="A11ySentinel Logo" className="w-full h-full object-contain" />
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -70,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-bodyp mt-0.5 truncate">
-                Source-Level WCAG 2.1 AA / RGAA 4 Audit &amp; Remediation
+                Source-Level WCAG 2.1 AA 
               </p>
             </div>
           </div>
