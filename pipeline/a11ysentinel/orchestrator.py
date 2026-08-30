@@ -190,49 +190,65 @@ async def run_audit(
                 if visual and page_capture.screenshot_png:
                     from . import visual_auditor
 
-                    visual_result = await visual_auditor.audit(
-                        page,
-                        screenshot_png=page_capture.screenshot_png,
-                        html=page_capture.html,
-                        page_url=page_capture.url,
-                        axe_findings=findings,
-                        language=page_capture.language,
-                        framework=page_capture.framework,
-                        regional_framework=regional.framework,
-                        start_index=len(findings) + 1,
-                    )
-                    findings.extend(visual_result.findings)
-                    result.note(
-                        "VisualAuditor",
-                        "success" if visual_result.findings else "info",
-                        f"{len(visual_result.findings)} findings a rule engine "
-                        "cannot detect",
-                        stage="auditing",
-                    )
-                    for d in visual_result.discards:
-                        result.note("VisualAuditor", "warn", d, stage="auditing")
-                    # Screening and redaction outcomes belong in the report:
-                    # "we checked" is a claim worth being able to show, and
-                    # so is what was removed.
-                    for sec in visual_result.security:
-                        loud = "FLAGGED" in sec or "redacted" in sec
-                        result.note(
-                            "VisualAuditor",
-                            "warn" if loud else "info",
-                            sec,
-                            stage="auditing",
+                    visual_result = None
+                    try:
+                        visual_result = await visual_auditor.audit(
+                            page,
+                            screenshot_png=page_capture.screenshot_png,
+                            html=page_capture.html,
+                            page_url=page_capture.url,
+                            axe_findings=findings,
+                            language=page_capture.language,
+                            framework=page_capture.framework,
+                            regional_framework=regional.framework,
+                            start_index=len(findings) + 1,
                         )
-                    for note in visual_result.suspicious:
-                        # Page text that tried to instruct the model.
-                        # Reported, never obeyed, and never filed as a
-                        # violation — it has no WCAG criterion.
+                    except Exception as exc:  # noqa: BLE001
+                        # A model outage costs the findings a rule engine cannot
+                        # detect. It must never also cost the ones it can: the axe
+                        # results are already computed, correct, and the whole
+                        # reason stage 1 exists.
                         result.note(
                             "VisualAuditor",
                             "error",
-                            "Suspicious content in page - reported, not obeyed",
-                            details=note,
+                            "Visual audit failed; axe-core findings kept",
+                            details=f"{type(exc).__name__}: {exc}",
                             stage="auditing",
                         )
+
+                    if visual_result is not None:
+                        findings.extend(visual_result.findings)
+                        result.note(
+                            "VisualAuditor",
+                            "success" if visual_result.findings else "info",
+                            f"{len(visual_result.findings)} findings a rule engine "
+                            "cannot detect",
+                            stage="auditing",
+                        )
+                        for d in visual_result.discards:
+                            result.note("VisualAuditor", "warn", d, stage="auditing")
+                        # Screening and redaction outcomes belong in the report:
+                        # "we checked" is a claim worth being able to show, and
+                        # so is what was removed.
+                        for sec in visual_result.security:
+                            loud = "FLAGGED" in sec or "redacted" in sec
+                            result.note(
+                                "VisualAuditor",
+                                "warn" if loud else "info",
+                                sec,
+                                stage="auditing",
+                            )
+                        for note in visual_result.suspicious:
+                            # Page text that tried to instruct the model.
+                            # Reported, never obeyed, and never filed as a
+                            # violation — it has no WCAG criterion.
+                            result.note(
+                                "VisualAuditor",
+                                "error",
+                                "Suspicious content in page - reported, not obeyed",
+                                details=note,
+                                stage="auditing",
+                            )
                 elif visual:
                     result.note(
                         "VisualAuditor",
@@ -270,28 +286,44 @@ async def run_audit(
                 advance(AuditStatus.REMEDIATING)
                 from . import remediator
 
-                report = await remediator.remediate_all(
-                    findings,
-                    limit=remediation_limit,
-                    language=page_capture.language,
-                )
-                result.note(
-                    "RemediationFanOut",
-                    "success" if report.drafted else "warn",
-                    f"Patches drafted for {len(report.drafted)} findings, "
-                    f"{len(report.rejected)} not attempted or refused",
-                    stage="remediating",
-                )
-                for o in report.rejected:
-                    if not o.reason:
-                        continue
+                report = None
+                try:
+                    report = await remediator.remediate_all(
+                        findings,
+                        limit=remediation_limit,
+                        language=page_capture.language,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    # Same rule as the visual audit: a model outage costs the
+                    # patches, never the findings. Everything stays `detected`,
+                    # the verifier then reports before == after, and the audit is
+                    # a truthful stage 1 result instead of nothing at all.
                     result.note(
-                        "Remediator",
-                        "warn",
-                        f"{o.finding.findingId} ({o.finding.category}) - no patch",
-                        details=o.reason,
+                        "RemediationFanOut",
+                        "error",
+                        "Remediation failed; findings kept, no patches drafted",
+                        details=f"{type(exc).__name__}: {exc}",
                         stage="remediating",
                     )
+
+                if report is not None:
+                    result.note(
+                        "RemediationFanOut",
+                        "success" if report.drafted else "warn",
+                        f"Patches drafted for {len(report.drafted)} findings, "
+                        f"{len(report.rejected)} not attempted or refused",
+                        stage="remediating",
+                    )
+                    for o in report.rejected:
+                        if not o.reason:
+                            continue
+                        result.note(
+                            "Remediator",
+                            "warn",
+                            f"{o.finding.findingId} ({o.finding.category}) - no patch",
+                            details=o.reason,
+                            stage="remediating",
+                        )
 
             # Findings are real work already paid for. Attach them before
             # verification runs, so a failure there costs us the delta but not
