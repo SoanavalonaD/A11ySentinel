@@ -44,3 +44,6 @@ Thumbs.db
 
 # Internal working notes, not for the repo
 NOTES.local.md
+
+# Built dashboard, copied into the pipeline image by deploy.sh
+pipeline/web-dist/

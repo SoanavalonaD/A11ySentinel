@@ -8,6 +8,8 @@ tests/
 scripts/
 *.json
 !vendor/*.json
+# The built dashboard ships in the image; its assets include .json.
+!web-dist/**
 README.md
 Dockerfile
 .dockerignore

@@ -23,6 +23,10 @@ COPY vendor/ ./vendor/
 # against a domain we control, and shipping it in the image means the demo has
 # no separate host that can be down on Monday.
 COPY demo-site/ ./demo-site/
+# The built dashboard, produced by deploy.sh before the image is built. Served
+# at / by the same service, so the browser talks to /audit on its own origin
+# and CORS never enters the picture. Optional: the API runs fine without it.
+COPY web-dist/ ./web-dist/
 COPY service.py audit_cli.py ./
 
 # Run as the non-root user the Playwright image already provides.

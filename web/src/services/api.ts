@@ -10,16 +10,25 @@ export interface AuditRequestPayload {
 }
 
 /**
- * Where the pipeline lives. Defaults to the deployed Cloud Run service;
- * point it at a local `uvicorn service:app` with VITE_API_BASE_URL to audit
- * without deploying.
+ * Where the pipeline lives.
  *
- * Whichever it is, the service must allow this page's origin (ALLOWED_ORIGINS
- * on the pipeline) or the browser blocks the request before it is sent.
+ *   unset            the deployed Cloud Run service (default)
+ *   http://host:port a local `uvicorn service:app`, to audit without deploying
+ *   "" (empty)       same origin — the shape used in production, where the
+ *                    dashboard is served by the pipeline itself
+ *
+ * Empty is deliberate and must stay distinguishable from unset: it makes every
+ * request relative, so there is no cross-origin request to block and CORS
+ * stops being able to break the dashboard at all.
+ *
+ * For any other value the service must allow this page's origin via
+ * ALLOWED_ORIGINS, or the browser blocks the request before it is sent.
  */
+const _configuredBase = import.meta.env.VITE_API_BASE_URL;
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  'https://a11ysentinel-pipeline-708226575684.us-central1.run.app';
+  _configuredBase !== undefined
+    ? _configuredBase
+    : 'https://a11ysentinel-pipeline-708226575684.us-central1.run.app';
 
 /**
  * A request that did not produce an audit. Carries why, so the dashboard can

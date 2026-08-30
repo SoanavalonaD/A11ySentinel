@@ -347,3 +347,27 @@ async def prospect(request: ProspectRequest) -> dict[str, Any]:
         ],
     }
     return payload
+
+
+# The built dashboard, served from this same service.
+#
+# Same origin as the API, which is the point: the browser makes relative
+# requests to /audit, so there is no cross-origin request and CORS cannot
+# block it. The dashboard previously ran on its own origin, the service had
+# no CORS headers, and every audit died at the preflight — invisibly, because
+# the browser will not say why.
+#
+# Registered at the very bottom of this module because a mount at "/" matches
+# every path; anything declared after it would never be reached. Built by
+# deploy.sh into web-dist/ before the image is built, so it is absent in a
+# plain local run and the API still serves normally.
+def _mount_dashboard() -> None:
+    dist = Path(__file__).parent / "web-dist"
+    if not (dist / "index.html").is_file():
+        log.info("no web-dist/ present; serving the API only")
+        return
+    app.mount("/", StaticFiles(directory=str(dist), html=True), name="dashboard")
+    log.info("dashboard mounted at /")
+
+
+_mount_dashboard()

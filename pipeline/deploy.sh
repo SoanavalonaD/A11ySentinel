@@ -40,6 +40,23 @@ gcloud storage buckets create "gs://${BUCKET}" --location="${REGION}" \
 # gcloud runs through cmd.exe, where "^" is itself the escape character, so the
 # prefix never reaches gcloud. A file has no escaping rules at all.
 # Edit env.deploy.yaml to change project, region, model or candidate pool.
+# The dashboard ships inside this image and is served at / by the same
+# service. Same origin as the API, so the browser makes relative requests to
+# /audit and there is no cross-origin request for CORS to block — which is
+# what used to kill every audit silently.
+echo "==> building the dashboard into web-dist/"
+if command -v pnpm >/dev/null 2>&1; then
+  # Empty VITE_API_BASE_URL means same origin. It must be exported as an empty
+  # string rather than left unset: unset falls back to the deployed URL.
+  ( cd ../web && VITE_API_BASE_URL= pnpm install --frozen-lockfile && VITE_API_BASE_URL= pnpm run build )
+  rm -rf web-dist
+  cp -r ../web/dist web-dist
+  echo "    dashboard built ($(find web-dist -type f | wc -l) files)"
+else
+  echo "    pnpm not found — deploying the API only, without the dashboard" >&2
+  mkdir -p web-dist
+fi
+
 echo "==> build and deploy"
 # 2Gi because Chromium needs roughly 1.5Gi under load; 512Mi dies mid-audit
 # with an opaque browser crash rather than a clean OOM.
@@ -60,6 +77,9 @@ URL="$(gcloud run services describe "${SERVICE}" --region "${REGION}" \
 
 echo
 echo "==> deployed: ${URL}"
+echo
+echo "    open the dashboard:"
+echo "      ${URL}/"
 echo
 echo "    check readiness:"
 echo "      curl ${URL}/health"
