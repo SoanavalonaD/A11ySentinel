@@ -8,7 +8,7 @@ interface AuditFormProps {
 }
 
 export const AuditForm: React.FC<AuditFormProps> = ({ onRunAudit, isLoading }) => {
-  const [url, setUrl] = useState('https://demo-target.a11ysentinel.dev');
+  const [url, setUrl] = useState('');
   const [visual, setVisual] = useState(true);
   const [remediate, setRemediate] = useState(true);
   const [modelTriage, setModelTriage] = useState(true);
@@ -70,19 +70,15 @@ export const AuditForm: React.FC<AuditFormProps> = ({ onRunAudit, isLoading }) =
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10.5px] font-bold uppercase tracking-[0.5px] text-bodyp">
-            Demo Presets:
+            Exemples d'URL :
           </span>
           <button
             type="button"
-            onClick={() =>
-              handleSelectPreset(
-                'https://a11ysentinel-pipeline-708226575684.us-central1.run.app/demo/index.html'
-              )
-            }
-            className="text-[11px] font-semibold border border-line2 text-cgreen px-2.5 py-1 hover:bg-sunk transition-colors flex items-center gap-1.5 whitespace-nowrap"
+            onClick={() => handleSelectPreset('https://example.com')}
+            className="text-[11px] font-semibold border border-line2 text-cblue px-2.5 py-1 hover:bg-sunk transition-colors flex items-center gap-1.5 whitespace-nowrap"
           >
             <Sparkles className="w-3 h-3" strokeWidth={1.5} />
-            Marché Antsahabe (21→4)
+            https://example.com
           </button>
           <button
             type="button"

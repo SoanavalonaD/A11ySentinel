@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Sun, Moon, Sparkles, CheckCircle2, FileText, Cpu, ExternalLink } from 'lucide-react';
+import { ShieldCheck, Sun, Moon, FileText, Cpu, ExternalLink, Globe } from 'lucide-react';
 
 interface NavbarProps {
   onLoadFixture: (fixtureName: 'sample' | 'demo') => void;
   activeFixture: string;
   onOpenReport: () => void;
   isReportMode: boolean;
+  targetUrl?: string;
 }
 
 type Theme = 'light' | 'dark';
@@ -32,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeFixture,
   onOpenReport,
   isReportMode,
+  targetUrl,
 }) => {
   const [theme, setTheme] = useState<Theme>(readInitialTheme);
 
@@ -48,13 +50,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const goTo = (view: 'dashboard' | 'report') => {
     if ((view === 'report') !== isReportMode) onOpenReport();
   };
-
-  const segment = (active: boolean) =>
-    `px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap border transition-colors ${
-      active
-        ? 'bg-fill-blue text-on-fill border-fill-blue'
-        : 'bg-transparent text-bodyp border-line2 hover:text-head'
-    }`;
 
   return (
     <header className="sticky top-0 z-50 bg-panel border-b border-line2">
@@ -81,22 +76,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => onLoadFixture('sample')}
-              className={segment(activeFixture === 'sample')}
-            >
-              <Sparkles className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" strokeWidth={1.5} />
-              Fixture Contract (aud_7f3c91)
-            </button>
-            <button
-              type="button"
-              onClick={() => onLoadFixture('demo')}
-              className={segment(activeFixture === 'demo')}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" strokeWidth={1.5} />
-              Marché Antsahabe (21→4)
-            </button>
+            {/* Dynamic Active Audit Site Badge */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-sunk border border-line2 text-[11px] whitespace-nowrap">
+              <Globe className="w-3.5 h-3.5 text-cblue shrink-0" strokeWidth={1.5} />
+              <span className="text-bodyp font-medium">Audit cible :</span>
+              <span className="font-mono font-semibold text-head truncate max-w-[200px]" title={targetUrl}>
+                {targetUrl || 'https://example.com'}
+              </span>
+            </div>
 
             <button
               type="button"

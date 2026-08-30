@@ -159,6 +159,7 @@ export const App: React.FC = () => {
       
       {/* Navbar */}
       <Navbar
+        targetUrl={activeAudit.targetUrl}
         onLoadFixture={handleLoadFixture}
         activeFixture={activeFixtureName}
         onOpenReport={() => setViewMode(viewMode === 'report' ? 'dashboard' : 'report')}
