@@ -137,6 +137,22 @@ async def _run_and_persist(
     triage: bool = False,
     visual: bool = False,
 ) -> dict[str, Any]:
+    # Write each stage transition as it happens, so a dashboard polling the
+    # audit document sees live progress. The audit spends most of its time in
+    # `remediating` and `verifying`; without this it would appear stuck on
+    # `auditing` for a minute and then jump straight to `complete`.
+    #
+    # Best-effort by design: run_audit swallows a failure here and records it,
+    # because losing the status line is not worth losing the audit.
+    def record_progress(audit) -> None:
+        if not PERSIST:
+            return
+        client = getattr(record_progress, "_client", None)
+        if client is None:
+            client = store.get_client()
+            record_progress._client = client
+        store.write_audit(client, audit)
+
     result = await run_audit(
         url,
         trigger=trigger,
@@ -144,6 +160,7 @@ async def _run_and_persist(
         remediation_limit=limit or None,
         model_triage=triage,
         visual=visual,
+        on_status=record_progress,
     )
     payload = result.to_contract_json()
 

@@ -12,6 +12,7 @@ development.
 from __future__ import annotations
 
 import secrets
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -60,6 +61,7 @@ async def run_audit(
     remediation_limit: int | None = 12,
     model_triage: bool = False,
     visual: bool = False,
+    on_status: Callable[[Audit], None] | None = None,
 ) -> AuditResult:
     """Single-page Stage 1 audit, end to end.
 
@@ -75,15 +77,31 @@ async def run_audit(
     )
     result = AuditResult(audit=audit)
 
+    def advance(status: AuditStatus) -> None:
+        """Move to the next stage and let the caller persist it.
+
+        The callback is optional so this module keeps no Firestore dependency
+        and still runs locally with no credentials. A failure to record
+        progress must never fail the audit — the work is worth more than the
+        status line.
+        """
+        audit.status = status
+        if on_status is None:
+            return
+        try:
+            on_status(audit)
+        except Exception as exc:  # noqa: BLE001
+            result.discards.append(f"status write failed at {status.value}: {exc}")
+
     try:
         async with capture_mod.BrowserSession(headless=headless) as browser:
-            audit.status = AuditStatus.CAPTURING
+            advance(AuditStatus.CAPTURING)
             page_capture = await capture_mod.capture_page(
                 browser, target_url, screenshot=screenshot
             )
             audit.pageCount = 1
 
-            audit.status = AuditStatus.AUDITING
+            advance(AuditStatus.AUDITING)
             context = await browser.new_context(viewport=capture_mod.VIEWPORT)
             try:
                 page = await context.new_page()
@@ -169,6 +187,7 @@ async def run_audit(
             # runs with no Vertex AI quota. Findings beyond the cap stay at
             # `detected` and are reported as such, not quietly dropped.
             if remediate and findings:
+                advance(AuditStatus.REMEDIATING)
                 from . import remediator
 
                 report = await remediator.remediate_all(
@@ -190,6 +209,7 @@ async def run_audit(
 
             # Agent 7. With no patches this reports before == after, which is
             # the honest stage 1 result rather than an invented delta.
+            advance(AuditStatus.VERIFYING)
             try:
                 verification = await verifier.verify_patches(
                     browser,
@@ -219,12 +239,12 @@ async def run_audit(
                 if finding.status is FindingStatus.PATCHED:
                     finding.revert_to_detected()
 
-        audit.status = AuditStatus.COMPLETE
         audit.completedAt = _now_iso()
+        advance(AuditStatus.COMPLETE)
 
     except Exception as exc:
-        audit.status = AuditStatus.FAILED
         audit.completedAt = _now_iso()
         audit.error = f"{type(exc).__name__}: {exc}"
+        advance(AuditStatus.FAILED)
 
     return result

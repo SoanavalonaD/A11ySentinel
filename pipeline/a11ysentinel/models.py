@@ -42,9 +42,20 @@ class Trigger(str, Enum):
 
 
 class AuditStatus(str, Enum):
+    """Where an audit is. Written to Firestore as it advances, not just at the
+    end, so a dashboard polling the audit document can show live progress.
+
+    `remediating` and `verifying` exist because the pipeline genuinely spends
+    most of its time in them — a 21-finding audit is roughly a second of
+    capture and a minute of drafting and checking patches. An audit that sat on
+    `auditing` for that whole minute would look stalled.
+    """
+
     QUEUED = "queued"
     CAPTURING = "capturing"
     AUDITING = "auditing"
+    REMEDIATING = "remediating"
+    VERIFYING = "verifying"
     COMPLETE = "complete"
     FAILED = "failed"
 

@@ -1,9 +1,11 @@
 # A11ySentinel — Data Contract
 
-**Status:** draft 4, awaiting Partner sign-off.
+**Status:** draft 5, awaiting Partner sign-off.
 Draft 2 added `status`. Draft 3 added `announcedBefore` / `announcedAfter`.
 **Draft 4 renames `rgaaCriterion`** — see "Standards" below. That one is a
 breaking change; the others were additive.
+**Draft 5 adds `remediating` and `verifying`** to the audit `status` enum,
+answering open question 1. Additive.
 **Authoritative.** If this file and any other document disagree, this file wins.
 
 The pipeline **writes**. The web layer **reads**. Neither side waits for the
@@ -49,7 +51,7 @@ audits/{auditId}/findings/{findingId}   <- subcollection, one doc per finding
 | `auditId` | string | pipeline | `aud_` + 6 hex. Also the Firestore doc id. |
 | `targetUrl` | string | pipeline | Absolute URL, scheme included. |
 | `trigger` | enum | pipeline | `manual` or `prospect` |
-| `status` | enum | pipeline | `queued`, `capturing`, `auditing`, `complete`, `failed` |
+| `status` | enum | pipeline | `queued`, `capturing`, `auditing`, `remediating`, `verifying`, `complete`, `failed`. **Written as it advances**, not only at the end — poll the audit document for live progress. |
 | `createdAt` | string | pipeline | ISO 8601 UTC, `Z` suffix. |
 | `completedAt` | string or null | pipeline | Null until terminal. |
 | `pageCount` | int | pipeline | Pages actually audited, not discovered. |
@@ -300,10 +302,13 @@ A `detected` finding renders as "we found this" with no diff. Only a
 
 **Open questions for you — answer these and I will fold them in:**
 
-1. **`status` enum.** The plan stops at `capturing` / `auditing`. The real
-   pipeline also remediates and verifies. Do you want `remediating` and
-   `verifying` added so the dashboard can show live progress, or keep four
-   states and drive a progress indicator off `pageCount`? Your UI, your call.
+1. ~~**`status` enum.**~~ **Answered — added in draft 5.** You had already
+   put `remediating` and `verifying` in your TypeScript, so the pipeline now
+   emits them. It also **writes each transition to Firestore as it happens**
+   rather than only at the end, which is what makes them observable: an audit
+   spends about a second capturing and a minute drafting and checking patches,
+   so without this it would look stalled on `auditing` and then jump to
+   `complete`. Poll the audit document to drive the progress tracker.
 2. **Who writes `proxyUrl`?** I have assumed you do, once the proxy can serve
    the audit. If you would rather the pipeline pre-compute a deterministic URL,
    say so.
