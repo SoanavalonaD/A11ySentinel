@@ -10,6 +10,7 @@ import { FilterBar, StatusTab } from './components/FilterBar';
 import { FindingCard } from './components/FindingCard';
 import { LiveProgressTracker } from './components/LiveProgressTracker';
 import { HumanGuidanceModal } from './components/HumanGuidanceModal';
+import { RemediationReport } from './components/RemediationReport';
 
 import { ShieldCheck, Layers, AlertCircle, FileCheck2, Code2 } from 'lucide-react';
 
@@ -20,6 +21,9 @@ export const App: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [selectedHumanFinding, setSelectedHumanFinding] = useState<Finding | null>(null);
+
+  // View mode: 'dashboard' | 'report'
+  const [viewMode, setViewMode] = useState<'dashboard' | 'report'>('dashboard');
 
   // Filters state
   const [activeTab, setActiveTab] = useState<StatusTab>('all');
@@ -137,25 +141,38 @@ export const App: React.FC = () => {
     <div className="min-h-screen flex flex-col font-sans">
       
       {/* Navbar */}
-      <Navbar onLoadFixture={handleLoadFixture} activeFixture={activeFixtureName} />
+      <Navbar
+        onLoadFixture={handleLoadFixture}
+        activeFixture={activeFixtureName}
+        onOpenReport={() => setViewMode(viewMode === 'report' ? 'dashboard' : 'report')}
+        isReportMode={viewMode === 'report'}
+      />
 
-      {/* Main Container */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
-        {/* Audit Form */}
-        <AuditForm onRunAudit={handleRunAudit} isLoading={isLoading} />
-
-        {/* Live Progress Tracker (during loading or active stage) */}
-        {isLoading && (
-          <LiveProgressTracker status={activeAudit.status} pageCount={activeAudit.pageCount} />
-        )}
-
-        {/* Audit Overview & Metrics Summary */}
-        <AuditSummary
+      {viewMode === 'report' ? (
+        <RemediationReport
           audit={activeAudit}
-          verifiedCount={verifiedCount}
-          humanInputCount={humanCount}
+          findings={findings}
+          onBackToDashboard={() => setViewMode('dashboard')}
         />
+      ) : (
+        /* Main Container */
+        <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          
+          {/* Audit Form */}
+          <AuditForm onRunAudit={handleRunAudit} isLoading={isLoading} />
+
+          {/* Live Progress Tracker (during loading or active stage) */}
+          {isLoading && (
+            <LiveProgressTracker status={activeAudit.status} pageCount={activeAudit.pageCount} />
+          )}
+
+          {/* Audit Overview & Metrics Summary */}
+          <AuditSummary
+            audit={activeAudit}
+            verifiedCount={verifiedCount}
+            humanInputCount={humanCount}
+            onOpenReport={() => setViewMode('report')}
+          />
 
         {/* Filter Bar */}
         <FilterBar
@@ -205,8 +222,8 @@ export const App: React.FC = () => {
             </div>
           )}
         </section>
-
       </main>
+      )}
 
       {/* Human Guidance Modal */}
       <HumanGuidanceModal

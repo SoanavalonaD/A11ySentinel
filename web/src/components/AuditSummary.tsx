@@ -6,9 +6,10 @@ interface AuditSummaryProps {
   audit: Audit;
   verifiedCount: number;
   humanInputCount: number;
+  onOpenReport: () => void;
 }
 
-export const AuditSummary: React.FC<AuditSummaryProps> = ({ audit, verifiedCount, humanInputCount }) => {
+export const AuditSummary: React.FC<AuditSummaryProps> = ({ audit, verifiedCount, humanInputCount, onOpenReport }) => {
   const before = audit.violationsBefore;
   const after = audit.violationsAfter !== null ? audit.violationsAfter : before;
   const fixedCount = Math.max(0, before - after);
@@ -31,19 +32,29 @@ export const AuditSummary: React.FC<AuditSummaryProps> = ({ audit, verifiedCount
           </h2>
         </div>
 
-        {/* Live Proxy Preview Button */}
-        {audit.proxyUrl && (
-          <a
-            href={audit.proxyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center space-x-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition group shrink-0"
+        {/* Action Buttons: Report & Live Proxy Preview */}
+        <div className="flex items-center space-x-3 shrink-0 flex-wrap gap-2">
+          <button
+            onClick={onOpenReport}
+            className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/20 transition"
           >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Preview Corrected Site (Live Proxy)</span>
-            <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
-          </a>
-        )}
+            <FileText className="w-4 h-4" />
+            <span>Generate Report</span>
+          </button>
+
+          {audit.proxyUrl && (
+            <a
+              href={audit.proxyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-2 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition group"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Preview Corrected Site (Live Proxy)</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Primary Metrics Grid */}

@@ -70,7 +70,23 @@ This document provides a comprehensive checklist to verify all frontend, dashboa
 
 ---
 
-## 3. Verification Commands
+## 3. Remediation Report Generation (Deliverable B3)
+
+### 3.1 Structured Content & Claim Discipline
+- [ ] **Neutral Language**: Contains no arbitrary compliance grades or legal claims ("100% compliant", "legally risk-free").
+- [ ] **Executive Summary**: Displays audit ID, date, scanned pages count, and exact `violationsBefore` → `violationsAfter` measured reduction.
+- [ ] **Technical Scope**: References primary WCAG 2.1 AA standard and contextual RGAA 4 framework.
+- [ ] **Verified Source Fixes Section**: Lists all `verified` findings with WCAG/RGAA tags, CSS selector, screen reader announcement comparison, and code diffs (`currentCode` vs `patchedCode`).
+- [ ] **Human Action Required Section**: Dedicated section for `requiresHumanInput: true` items with `humanGuidance` and placeholder notice.
+- [ ] **Unpatched Violations Section**: Displays detected violations awaiting remediation.
+
+### 3.2 Export & Print Features
+- [ ] **Print / Save as PDF**: Clicking **"Print / Save as PDF"** opens browser print dialog (`window.print()`) with print-optimized styles.
+- [ ] **Download Markdown (.md)**: Clicking **"Download Markdown (.md)"** downloads `A11ySentinel_Remediation_Report_${auditId}.md`.
+
+---
+
+## 4. Verification Commands
 
 ### 3.1 Build & Type Check
 ```bash
