@@ -1,6 +1,6 @@
 """axe rule -> WCAG 2.1 AA, plus the RGAA 4 cross-reference.
 
-Scope is deliberately narrow. Per CLAUDE.md we target the ten axe rules that
+Scope is deliberately narrow. Per CONTRIBUTING.md we target the ten axe rules that
 cover the majority of real violations rather than attempting full WCAG
 coverage. Everything else axe reports is still counted in violationsBefore
 but is not remediated.

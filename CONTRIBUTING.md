@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Contributing to A11ySentinel
 
-Context for anyone — human or Claude Code — working in this repo.
+Context for anyone working in this repo.
 
 ---
 
@@ -11,11 +11,8 @@ RGAA accessibility violations, generates source-level code fixes, verifies
 them by re-running a deterministic rule engine, and serves a live corrected
 preview of the client's own site.
 
-Built for the Google Cloud **All Things Agentic Hackathon**, Taskmaster track.
-**Deadline: Monday 31 August 2026, 17:00 PDT.** Two-person team, ~2 days.
-
-Target prizes: Taskmaster ($20k), Best Architectural Design ($5k),
-Best Multimodal UX ($5k). Not optimising for grand prize.
+Built for the Google Cloud All Things Agentic Hackathon, Taskmaster track,
+by a two-person team.
 
 ---
 
@@ -114,17 +111,19 @@ and check whether the other side depends on it.
 
 Full detail in `docs/agent-register.md`.
 
-### Ship order — each stage is demoable on its own
+### Build order
 
-| Stage | Agents | Demoable outcome |
+Each stage stands alone, which is why they were built in this order.
+
+| Stage | Agents | What it produces |
 |---|---|---|
-| 1 | 1, 2, 7 | Real before/after violation counts — **no Gemini required** |
-| 2 | + 6 | Real code patches, proxy works |
-| 3 | + 3 | Multimodal findings axe cannot catch |
-| 4 | + 4, 5 | Prioritised output, true parallelism |
+| 1 | 1, 2, 7 | Before/after violation counts, with no model in the path |
+| 2 | + 5, 6 | Source-level patches, verified before they are shown |
+| 3 | + 3 | Findings a rule engine structurally cannot detect |
+| 4 | + 4 | Harm-ordered output and plain-language impact |
 
-Stage 1 is the floor. Agents 4 and 5 can ship as a plain sort and a for-loop if
-time runs out. Cut from the bottom of this table, never from the top.
+Stage 1 is the foundation and uses no Gemini at all, so the numbers it produces
+are reproducible and independent of model availability.
 
 ---
 
@@ -157,31 +156,5 @@ with it and are non-negotiable:
 - Commits: imperative mood, scoped — `pipeline: validate selectors before write`
 - Python: type hints on agent boundaries, `ruff` defaults
 - Env vars via `.env`, never hardcoded; `.env.example` stays current
-- Every new dependency goes in `requirements.txt` / `package.json` immediately —
-  the README must stay reproducible, judges check this
-
----
-
-## Submission requirements — don't lose points here
-
-- [ ] Category: Taskmaster
-- [ ] Hosted project URL
-- [ ] Description: features, technologies, data sources, findings and learnings
-- [ ] Repo shared with `testing@devpost.com` and `cloudhackathons@google.com` (it's private)
-- [ ] README with reproducible spin-up instructions
-- [ ] Architecture diagram
-- [ ] ~4 min demo video with **visible Google Cloud proof** (Cloud Run console, Vertex AI logs, `.run.app` URL)
-- [ ] Bonus: public blog/video post stating it was made for this hackathon
-- [ ] Bonus: social post with `#AllThingsAgenticHackathon`
-
-Submit by **15:00 PDT Monday**, not 17:00. Devpost slows near deadlines.
-
----
-
-## Open decisions
-
-- ~~Does the partner write Python?~~ **Closed.** All seven agents are built
-  in `pipeline/`. `VisualAuditor` (agent 3) was the open handoff; it is done,
-  so the partner's hours go to the proxy, the dashboard and the architecture
-  diagram instead.
-- Demo target site — pick and test it early, not Monday morning.
+- Every new dependency goes in `requirements.txt` / `package.json`
+  immediately, so a fresh clone always spins up from the README

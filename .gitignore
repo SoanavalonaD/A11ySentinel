@@ -41,3 +41,6 @@ Thumbs.db
 
 # ADK Dev UI local session store
 .adk/
+
+# Internal working notes, not for the repo
+NOTES.local.md

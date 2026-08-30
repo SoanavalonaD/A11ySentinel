@@ -12,7 +12,7 @@ The pipeline **writes**. The web layer **reads**. Neither side waits for the
 other — the web layer builds against `fixtures/audit-sample.json` until real
 records exist.
 
-Changing a field name here breaks the other person's build. Per `CLAUDE.md`,
+Changing a field name here breaks the other person's build. Per `CONTRIBUTING.md`,
 contract changes go **straight to `main`** with a message to the other person,
 never inside a feature branch.
 
@@ -260,7 +260,7 @@ These are enforced in the pipeline. Build against them.
 
 ## Language rule — applies to any string rendered in the UI
 
-Per `CLAUDE.md` rule 1: A11ySentinel **finds**, **prioritises**, **drafts**, and
+Per `CONTRIBUTING.md` rule 1: A11ySentinel **finds**, **prioritises**, **drafts**, and
 **verifies**. Nothing in this schema ever supports the claim that a site is
 "compliant" or "fixed". `violationsAfter` is a measured count, not a grade.
 
