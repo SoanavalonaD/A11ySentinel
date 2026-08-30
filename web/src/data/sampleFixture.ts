@@ -11,7 +11,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     pageCount: 4,
     violationsBefore: 47,
     violationsAfter: 6,
-    proxyUrl: "https://proxy-xyz.run.app/aud_7f3c91",
+    proxyUrl: "/proxy/aud_7f3c91",
     emailStatus: "draft",
     error: null
   },
@@ -138,7 +138,7 @@ export const DEMO_SITE_FIXTURE: AuditResultResponse = {
     pageCount: 5,
     violationsBefore: 21,
     violationsAfter: 4,
-    proxyUrl: "https://a11ysentinel-pipeline-708226575684.us-central1.run.app/proxy/aud_antsahabe_99",
+    proxyUrl: "/proxy/aud_antsahabe_99",
     emailStatus: "draft",
     error: null
   },

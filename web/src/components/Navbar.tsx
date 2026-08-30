@@ -1,12 +1,14 @@
 import React from 'react';
-import { ShieldCheck, Cpu, ExternalLink, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Cpu, ExternalLink, Sparkles, CheckCircle2, FileText } from 'lucide-react';
 
 interface NavbarProps {
   onLoadFixture: (fixtureName: 'sample' | 'demo') => void;
   activeFixture: string;
+  onOpenReport: () => void;
+  isReportMode: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onLoadFixture, activeFixture }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onLoadFixture, activeFixture, onOpenReport, isReportMode }) => {
   return (
     <header className="sticky top-0 z-50 glass-panel border-b border-slate-800/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -33,11 +35,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onLoadFixture, activeFixture }) 
           </div>
         </div>
 
-        {/* Quick Demo Presets & Service Status */}
+        {/* Quick Demo Presets & Report Button */}
         <div className="flex items-center space-x-3">
           
           {/* Preset dataset buttons */}
-          <div className="hidden md:flex items-center p-1 bg-slate-900/90 rounded-lg border border-slate-800 text-xs">
+          <div className="hidden lg:flex items-center p-1 bg-slate-900/90 rounded-lg border border-slate-800 text-xs">
             <span className="px-2 text-slate-500 font-medium text-[11px]">Fixtures:</span>
             <button
               onClick={() => onLoadFixture('sample')}
@@ -62,6 +64,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onLoadFixture, activeFixture }) 
               <span>Marché Antsahabe (21→4)</span>
             </button>
           </div>
+
+          {/* Report Document CTA Button */}
+          <button
+            onClick={onOpenReport}
+            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${
+              isReportMode 
+                ? 'bg-indigo-600 text-white border-indigo-500' 
+                : 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/20'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">Remediation Report</span>
+          </button>
 
           {/* Cloud Run Service Badge */}
           <a
