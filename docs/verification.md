@@ -107,9 +107,19 @@ This document provides a comprehensive checklist to verify all frontend, dashboa
 - [ ] **Web & Delivery Component**: Architecture diagram for Proxy Engine, Report Generator, and Email Approval Gate.
 - [ ] **GCP Mapping Table**: Service mapping table (Cloud Run, Pub/Sub, Cloud Run Jobs, Model Armor, Vertex AI Gemini 3.7 Flash, Firestore, Cloud Storage).
 
+## 6. Agent Audit Logs & Pipeline Execution Trail
+
+### 6.1 Audit Trail Transparency & Decision Surfacing
+- [ ] **7 ADK Agents Log Events**: Displays execution logs for all 7 ADK agents (`RootOrchestrator`, `RuleAuditor`, `VisualAuditor`, `TriageAgent`, `RemediationFanOut`, `Remediator`, `Verifier`).
+- [ ] **Discards & Write-Gate Rejections**: Directly surfaces `payload["notes"]` (discards, unmatched DOM selectors) and `payload["write"].findingsRejected` from `pipeline/service.py:155-170`.
+- [ ] **Log Filters**: Ability to filter logs by specific agent name (`All (7)`, `RuleAuditor`, `VisualAuditor`, `Verifier`, etc.).
+- [ ] **Search Bar**: Real-time text search across log messages and technical details.
+- [ ] **Level Badges**: Distinct color badges for `INFO`, `SUCCESS`, `WARN`, `ERROR` log entries.
+- [ ] **Copy Audit Trail**: Copy button formats all active log entries with timestamps for debugging or reporting.
+
 ---
 
-## 6. Verification Commands
+## 7. Verification Commands
 
 ### 3.1 Build & Type Check
 ```bash

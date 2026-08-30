@@ -66,7 +66,37 @@ export interface Finding {
   announcedAfter: string | null;
 }
 
+export type AgentName = 
+  | 'RootOrchestrator' 
+  | 'RuleAuditor' 
+  | 'VisualAuditor' 
+  | 'TriageAgent' 
+  | 'RemediationFanOut' 
+  | 'Remediator' 
+  | 'Verifier';
+
+export type LogLevel = 'info' | 'success' | 'warn' | 'error';
+
+export interface AgentAuditLogEntry {
+  logId: string;
+  timestamp: string;
+  agentName: AgentName;
+  level: LogLevel;
+  message: string;
+  details?: string;
+  stage?: string;
+}
+
+export interface AuditWriteReport {
+  findingsWritten?: number;
+  findingsRejected?: Array<{ findingId: string; reason: string }>;
+  error?: string;
+}
+
 export interface AuditResultResponse {
   audit: Audit;
   findings: Finding[];
+  notes?: string[];
+  write?: AuditWriteReport;
+  auditLogs?: AgentAuditLogEntry[];
 }
