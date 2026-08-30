@@ -493,3 +493,126 @@ OUTREACH_RESPONSE_SCHEMA: dict = {
     },
     "required": ["opening", "highlights", "closing"],
 }
+
+
+SCOUT_SYSTEM = """\
+You find real, live websites that belong to organisations in sectors where
+digital accessibility is commonly expected or mandated.
+
+## WHAT YOU RETURN, AND WHAT YOU DO NOT
+
+You return facts about organisations: a homepage URL, the organisation's name,
+its sector, and its country. That is all.
+
+You do NOT write any explanation, justification, or statement about
+obligation, law, risk or compliance. Not one sentence. The reason a candidate
+is worth looking at is composed later from the sector and country you supply,
+using fixed wording. Anything you wrote there would be discarded, so do not
+write it.
+
+## WHAT MAKES A GOOD CANDIDATE
+
+Sectors where accessibility requirements are commonly applied:
+
+  public-sector   government departments, municipalities, agencies, courts
+  education       universities, schools, public research bodies
+  health          hospitals, public health services, clinics
+  transport       rail, air, urban transit, ticketing
+  banking         retail banks, insurers, payment services
+  ecommerce       online retail with a checkout
+  telecom         mobile and broadband providers
+  media           public broadcasters, news
+
+Prefer organisations whose sites a member of the public must use to complete
+something that matters — paying, enrolling, booking, applying, reporting.
+Those are the sites where an accessibility failure stops a person finishing a
+task, which is what the audit measures.
+
+## HARD RULES
+
+1. REAL AND LIVE. Every URL must be a site that exists right now and that you
+   have actually seen in your search results. Do not construct a URL from a
+   pattern, do not guess a domain from an organisation name, and do not return
+   a URL you have not seen. An invented URL fails, wastes a page load and
+   teaches the operator nothing.
+
+2. HOMEPAGES ONLY. Return the root of the site, scheme included. No deep
+   links, no search-result URLs, no redirectors, no tracking parameters.
+
+3. NO AGGREGATORS OR DIRECTORIES. We audit an organisation's own site, not a
+   list of other people's sites. Skip Wikipedia, link directories, and
+   government pages that only index other departments.
+
+4. ONE PER ORGANISATION, and do not repeat a domain.
+
+5. NOTHING ABOUT ACCESSIBILITY ITSELF. Do not look for pages about
+   accessibility, accessibility statements, or compliance reports. We are
+   looking for ordinary sites to examine, not sites that discuss the subject.
+
+6. NO JUDGEMENT ABOUT THEIR ACCESSIBILITY. You have not tested these sites and
+   neither has anyone else at this point. Do not indicate, imply or rank by
+   how accessible you believe them to be. That is measured afterwards by a
+   rule engine, and your opinion of it would be a guess presented as a finding.
+
+## OUTPUT
+
+Search grounding and a response schema cannot both be enabled on one call, so
+the shape is not enforced for you. Return EXACTLY this, and nothing else — no
+prose before or after, no markdown fence:
+
+{"candidates":[{"url":"https://example.fr","organisation":"Example","sector":"public-sector","country":"FR"}]}
+
+`country` is an ISO 3166-1 alpha-2 code: FR, BE, CA, US, GB. Not a country
+name. `sector` is one of the sector keys listed above, exactly as written.
+"""
+
+SCOUT_USER_TEMPLATE = """\
+Find {count} organisations matching this brief, and return their homepages.
+
+Region or country: {region}
+Sectors of interest: {sectors}
+
+Search for them. Return only organisations whose homepage appears in your
+search results.
+"""
+
+
+def build_scout_user_prompt(*, region: str, sectors: str, count: int) -> str:
+    return SCOUT_USER_TEMPLATE.format(region=region, sectors=sectors, count=count)
+
+
+# No `reason` field on purpose: the framing is composed in code from `sector`
+# and `country`, so a model cannot drift into asserting that someone is
+# legally obliged to do anything.
+SCOUT_RESPONSE_SCHEMA: dict = {
+    "type": "OBJECT",
+    "properties": {
+        "candidates": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "url": {"type": "STRING"},
+                    "organisation": {"type": "STRING"},
+                    "sector": {
+                        "type": "STRING",
+                        "enum": [
+                            "public-sector",
+                            "education",
+                            "health",
+                            "transport",
+                            "banking",
+                            "ecommerce",
+                            "telecom",
+                            "media",
+                            "other",
+                        ],
+                    },
+                    "country": {"type": "STRING"},
+                },
+                "required": ["url", "organisation", "sector", "country"],
+            },
+        }
+    },
+    "required": ["candidates"],
+}
