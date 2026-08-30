@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Radar, X, Search, Check, AlertTriangle, Loader2, Play } from 'lucide-react';
+import {
+  Radar,
+  ChevronsRight,
+  Search,
+  Check,
+  AlertTriangle,
+  Loader2,
+  Play,
+} from 'lucide-react';
 
 export interface ScoutProspect {
   url: string;
@@ -127,7 +135,7 @@ export const ProspectScout: React.FC<ProspectScoutProps> = ({ onAudit, isAuditin
         type="button"
         onClick={() => setOpen(true)}
         aria-expanded={false}
-        className="fixed right-0 top-1/3 z-40 flex flex-col items-center gap-2 border border-r-0 border-line2 bg-panel px-2 py-4 text-bodyp hover:text-head hover:bg-sunk transition-colors card-shadow"
+        className="fixed right-0 top-1/3 z-[55] flex flex-col items-center gap-2 border border-r-0 border-line2 bg-panel px-2 py-4 text-bodyp hover:text-head hover:bg-sunk transition-colors card-shadow"
       >
         <Radar className="w-4 h-4 text-ccyan" strokeWidth={1.5} />
         <span
@@ -149,7 +157,11 @@ export const ProspectScout: React.FC<ProspectScoutProps> = ({ onAudit, isAuditin
     <aside
       ref={panelRef}
       aria-label="Prospect Scout"
-      className="fixed right-0 top-0 bottom-0 z-40 w-full sm:w-[400px] bg-panel border-l border-line2 flex flex-col card-shadow"
+      // Above the navbar's z-50. At z-40 the panel spanned from the top of
+      // the viewport but its header — title and collapse control — rendered
+      // underneath the sticky navbar, so the only way out of the panel was the
+      // Escape key.
+      className="fixed right-0 top-0 bottom-0 z-[60] w-full sm:w-[400px] bg-panel border-l border-line2 flex flex-col card-shadow"
     >
       <div className="flex items-start justify-between gap-3 p-4 border-b border-line2">
         <div className="min-w-0">
@@ -165,10 +177,12 @@ export const ProspectScout: React.FC<ProspectScoutProps> = ({ onAudit, isAuditin
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="p-1.5 text-bodyp hover:text-head transition-colors shrink-0"
+          aria-expanded={true}
+          title="Collapse to the rail (Esc)"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 border border-line2 text-[11px] font-semibold text-bodyp hover:text-head hover:bg-sunk transition-colors shrink-0 whitespace-nowrap"
         >
-          <span className="sr-only">Close the scout</span>
-          <X className="w-5 h-5" strokeWidth={1.5} />
+          <ChevronsRight className="w-3.5 h-3.5" strokeWidth={1.5} />
+          Collapse
         </button>
       </div>
 
