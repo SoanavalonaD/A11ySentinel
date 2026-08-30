@@ -227,6 +227,43 @@ attempting full WCAG coverage. Demo targets are server-rendered; JS-heavy SPAs
 are out of scope. No authentication, no multi-tenancy, no full-site crawl
 beyond the page cap.
 
+## Security
+
+Everything fetched is untrusted. Defences, outermost first:
+
+| Layer | Behaviour on failure |
+|---|---|
+| **PII redaction** — emails, phones, IBANs, card numbers | **Fails closed.** Local and deterministic, so it cannot be skipped by an outage |
+| **Model Armor** — Google's prompt-injection classifier | **Fails open.** One layer of several; an outage should not block every audit |
+| DOM stripping — scripts, styles, comments, inline handlers | n/a, always applied |
+| Prompt instructions — page text is data, never a command | n/a |
+| Response schema, selector validation, confidence floor | reject the response |
+| Verification — axe re-run on the patched DOM | rejects the patch |
+
+The asymmetry between the first two is deliberate: a PII leak is irreversible,
+while an injection still has to defeat five further layers.
+
+**Model Armor is screened per text block, not per page.** Its filter evaluates
+a prompt, not a document containing one. On our own test page the injection
+scored HIGH in isolation and was not flagged at all inside 1,000 characters of
+surrounding content. Splitting on block boundaries caught both injections —
+the visible one and one hidden off-screen — with no false positives.
+
+Set it up once:
+
+```bash
+gcloud services enable modelarmor.googleapis.com
+gcloud model-armor templates create a11ysentinel-screen   --location=us-central1   --pi-and-jailbreak-filter-settings-enforcement=enabled   --pi-and-jailbreak-filter-settings-confidence-level=LOW_AND_ABOVE   --malicious-uri-filter-settings-enforcement=enabled   --rai-settings-filters="filterType=DANGEROUS,confidenceLevel=MEDIUM_AND_ABOVE"
+```
+
+Then set `MODEL_ARMOR_ENABLED=true`. Without it the pipeline still runs; the
+audit output says the classifier was not consulted rather than implying it
+passed.
+
+`demo-site/avis.html` is the test page: a reviews page carrying two injection
+attempts and invented personal data, so the defences can be demonstrated rather
+than asserted.
+
 ## Responsible use
 
 Audits can be triggered manually or by prospecting. Three guards are

@@ -133,6 +133,10 @@ async def run_audit(
                     )
                     findings.extend(visual_result.findings)
                     result.discards.extend(visual_result.discards)
+                    # Screening and redaction outcomes belong in the
+                    # report: "we checked" is a claim worth being able
+                    # to show, and so is what was removed.
+                    result.discards.extend(visual_result.security)
                     for note in visual_result.suspicious:
                         # Page text that tried to instruct the model.
                         # Reported, never obeyed, and never filed as a

@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 
 from playwright.async_api import Page
 
-from . import prompts, rule_auditor
+from . import armor, pii, prompts, rule_auditor
 from .models import DEFAULT_MIN_CONFIDENCE, Finding, Framework, Severity, Source
 
 DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
@@ -69,6 +69,8 @@ class VisualAuditResult:
     findings: list[Finding] = field(default_factory=list)
     # Page text that tried to instruct the model. Reported, never obeyed.
     suspicious: list[str] = field(default_factory=list)
+    # What Model Armor said about the page, and what PII we removed.
+    security: list[str] = field(default_factory=list)
     # Why candidates were dropped. Surfaced rather than hidden: if the model is
     # producing mostly unanchored findings, we need to see that.
     discards: list[str] = field(default_factory=list)
@@ -152,6 +154,25 @@ async def audit(
         )
         return result
 
+    # Order matters. Trim first so we neither screen nor pay for markup the
+    # model never sees, then redact, then screen what actually gets sent.
+    trimmed = trim_dom(html)
+
+    # Fail-closed: local, deterministic, cannot be skipped by an outage.
+    redacted = pii.redact(trimmed)
+    if redacted.total:
+        result.security.append(f"page DOM: {redacted.summary()}")
+
+    # Fail-open: one layer among several, and blocking every audit when the
+    # classifier is down trades an outage for a marginal gain.
+    screening = await armor.screen_page(redacted.text)
+    result.security.append(screening.summary())
+    if screening.flagged:
+        result.suspicious.append(
+            "Model Armor flagged this page before it reached the model: "
+            + "; ".join(screening.findings)
+        )
+
     parts: list[object] = [
         types.Part.from_bytes(data=screenshot_png, mime_type="image/png"),
         types.Part.from_text(
@@ -159,7 +180,7 @@ async def audit(
                 page_url=page_url,
                 language=language,
                 axe_summary=summarise_axe(axe_findings),
-                dom=trim_dom(html),
+                dom=redacted.text,
             )
         ),
     ]
@@ -270,5 +291,11 @@ async def audit(
             )
         )
         index += 1
+
+    # The model can quote the page back at us. Redacting on the way out
+    # keeps an address the classifier missed from reaching the report and
+    # the outreach email.
+    for finding in result.findings:
+        result.security.extend(pii.redact_finding_prose(finding))
 
     return result
