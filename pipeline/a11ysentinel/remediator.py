@@ -24,7 +24,7 @@ import json
 import os
 from dataclasses import dataclass, field
 
-from . import prompts
+from . import pii, prompts
 from .models import DEFAULT_MIN_CONFIDENCE, Finding, Framework
 
 DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
@@ -173,15 +173,23 @@ async def remediate_one(
         min_confidence = float(os.getenv("MIN_CONFIDENCE", str(DEFAULT_MIN_CONFIDENCE)))
     client = client or _client()
 
+    # Personal data must not reach the model. Reversible, because the patch
+    # comes back and has to be applied to the real page — a patch containing
+    # "[REDACTED:EMAIL:1]" would replace a live address with a placeholder,
+    # breaking the client's page in the name of protecting it.
+    safe_code, pii_map = pii.redact_reversible(finding.currentCode)
+    safe_context, context_map = pii.redact_reversible(context)
+    pii_map.update(context_map)
+
     user_prompt = prompts.build_remediator_user_prompt(
         category=finding.category,
         wcag=finding.wcagCriterion,
         severity=finding.severity.value,
         user_impact=finding.userImpact,
         framework=finding.framework.value,
-        current_code=finding.currentCode,
+        current_code=safe_code,
         language=language,
-        context=context,
+        context=safe_context or None,
     )
 
     try:
@@ -214,6 +222,23 @@ async def remediate_one(
         data = json.loads(_strip_fences(raw))
     except ValueError as exc:
         return PatchOutcome(finding, False, f"response was not valid JSON: {exc}")
+
+    # Put the real values back before anything is judged or applied. The
+    # model saw tokens; the page needs the originals.
+    if pii_map:
+        for key in ("patchedCode", "currentCode"):
+            if data.get(key):
+                data[key] = pii.restore(data[key], pii_map)
+
+        # If a token did not survive the round trip we cannot reconstruct the
+        # element, and applying it would write a placeholder into a live page.
+        if pii.has_placeholder(data.get("patchedCode")):
+            return PatchOutcome(
+                finding,
+                False,
+                "patch retained a redaction placeholder — the model altered a "
+                "token it was asked to preserve, so the fix cannot be applied",
+            )
 
     accepted, reason = _validate(finding, data, min_confidence)
     if not accepted:

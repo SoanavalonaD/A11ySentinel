@@ -13,12 +13,24 @@ leak. A local pass has neither failure mode, costs nothing per page, and adds
 no latency to an audit that already runs a browser. DLP is the right upgrade
 for production, where an audit can afford to fail.
 
-**What is deliberately NOT redacted.** `currentCode` and `patchedCode` are left
-intact. The proxy applies a patch by matching it against the real DOM, so a
-redacted snippet would simply fail to apply — and a patch that cannot be
-applied is worse than useless, it is a fix that looks real and does nothing.
-Those fields are structural markup, and the redaction here targets the text
-sent to models and the prose that ends up in a report.
+**Two directions, two mechanisms.**
+
+Text that only travels *outward* — a page DOM sent to the VisualAuditor, the
+model's own prose — is redacted with `redact`, one way, values gone.
+
+Text that must go to a model *and come back* — the element HTML the Remediator
+patches — uses `redact_reversible`. The model sees tokens; the originals are
+restored before the patch is judged or applied. A patch containing
+"[REDACTED:EMAIL:1]" would replace a live address with a placeholder, breaking
+the client's page in the name of protecting it, so a token that fails to
+survive the round trip causes the patch to be refused.
+
+**What is deliberately left intact in storage.** The `currentCode` and
+`patchedCode` written to Firestore hold the real values. The proxy applies a
+patch by matching it against the real DOM, and the report goes to the operator
+of the site the data is already published on. Redaction here is about not
+disclosing personal data to a *third party* — Google's models — not about
+hiding a site's own contact page from its owner.
 
 Conservative by design. Over-redaction damages the audit — an `alt` attribute
 reading `[REDACTED]` would produce a nonsense finding — so each pattern is
@@ -141,3 +153,65 @@ def redact_finding_prose(finding) -> list[str]:
             setattr(finding, attr, report.text)
             notes.append(f"{finding.findingId}.{attr}: {report.summary()}")
     return notes
+
+
+# Reversible redaction, for text that must go to a model and come back.
+#
+# The Remediator sends an element's HTML to Gemini and receives a patched
+# version. Redacting on the way out is not enough on its own: the patch has to
+# be applied to the real page, and a patch containing "[REDACTED:EMAIL:1]"
+# would replace a live address with a placeholder — breaking the client's page
+# in the name of protecting it.
+#
+# So the values are swapped for indexed tokens before the call and swapped back
+# after. If a token does not survive the round trip, the patch is refused
+# rather than applied: see `has_placeholder`.
+
+_TOKEN = "[REDACTED:{kind}:{index}]"
+_TOKEN_PATTERN = re.compile(r"\[REDACTED:[A-Z]+:\d+\]")
+
+
+def redact_reversible(text: str | None) -> tuple[str, dict[str, str]]:
+    """Redact, keeping a map back to the originals.
+
+    Returns (redacted_text, {token: original}).
+    """
+    if not text:
+        return text or "", {}
+
+    mapping: dict[str, str] = {}
+    counter = {"n": 0}
+    out = text
+
+    for kind, pattern in _PATTERNS:
+        def _sub(match: re.Match[str], kind: str = kind) -> str:
+            value = match.group(0)
+            if kind == "CARD" and not _luhn_ok(value):
+                return value
+            counter["n"] += 1
+            token = _TOKEN.format(kind=kind, index=counter["n"])
+            mapping[token] = value
+            return token
+
+        out = pattern.sub(_sub, out)
+
+    return out, mapping
+
+
+def restore(text: str | None, mapping: dict[str, str]) -> str:
+    """Put the original values back."""
+    if not text or not mapping:
+        return text or ""
+    out = text
+    for token, value in mapping.items():
+        out = out.replace(token, value)
+    return out
+
+
+def has_placeholder(text: str | None) -> bool:
+    """True if any redaction token survived, meaning restoration failed.
+
+    A patch in this state must never be applied — it would write a placeholder
+    into a live page.
+    """
+    return bool(text) and bool(_TOKEN_PATTERN.search(text))

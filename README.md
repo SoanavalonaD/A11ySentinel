@@ -234,6 +234,7 @@ Everything fetched is untrusted. Defences, outermost first:
 | Layer | Behaviour on failure |
 |---|---|
 | **PII redaction** — emails, phones, IBANs, card numbers | **Fails closed.** Local and deterministic, so it cannot be skipped by an outage |
+| Reversible redaction on the Remediator path | Patch refused if a token does not survive the round trip |
 | **Model Armor** — Google's prompt-injection classifier | **Fails open.** One layer of several; an outage should not block every audit |
 | DOM stripping — scripts, styles, comments, inline handlers | n/a, always applied |
 | Prompt instructions — page text is data, never a command | n/a |
@@ -242,6 +243,13 @@ Everything fetched is untrusted. Defences, outermost first:
 
 The asymmetry between the first two is deliberate: a PII leak is irreversible,
 while an injection still has to defeat five further layers.
+
+**Scope, stated precisely.** Personal data is redacted before it reaches a
+model — that is the third-party disclosure worth preventing. The `currentCode`
+and `patchedCode` stored in Firestore keep the real values, because the proxy
+applies a patch by matching it against the real DOM, and the report goes to the
+operator of the site that already publishes the data. Redacting there would
+break patch application to hide a site's contact page from its own owner.
 
 **Model Armor is screened per text block, not per page.** Its filter evaluates
 a prompt, not a document containing one. On our own test page the injection
