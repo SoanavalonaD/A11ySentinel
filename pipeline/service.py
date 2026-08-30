@@ -169,9 +169,15 @@ async def _run_and_persist(
     # throwing them away at the API boundary undid that: a visual audit
     # that failed in production looked identical to one that found
     # nothing.
+    # Two forms of the same trail: `notes` stays human-readable for the
+    # report, `auditLogs` carries agent, level and stage separately so the
+    # dashboard can filter. to_contract_json already emits auditLogs.
     payload["notes"] = result.discards
-    for note in result.discards:
-        log.info("audit %s: %s", result.audit.auditId, note)
+    for entry in (result.log.entries if result.log else []):
+        log.info(
+            "audit %s [%s] %s: %s",
+            result.audit.auditId, entry.level, entry.agentName, entry.message,
+        )
 
     if PERSIST:
         try:

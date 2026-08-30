@@ -1,11 +1,12 @@
 # A11ySentinel — Data Contract
 
-**Status:** draft 5, awaiting Partner sign-off.
+**Status:** draft 6, awaiting Partner sign-off.
 Draft 2 added `status`. Draft 3 added `announcedBefore` / `announcedAfter`.
 **Draft 4 renames `rgaaCriterion`** — see "Standards" below. That one is a
 breaking change; the others were additive.
 **Draft 5 adds `remediating` and `verifying`** to the audit `status` enum,
 answering open question 1. Additive.
+**Draft 6 adds `auditLogs`** to the audit response. Additive.
 **Authoritative.** If this file and any other document disagree, this file wins.
 
 The pipeline **writes**. The web layer **reads**. Neither side waits for the
@@ -172,6 +173,42 @@ Say: *"WCAG 1.1.1 — the equivalent criterion under RGAA 4 is 1.3."*
 Never: *"RGAA compliant"*, *"meets EN 301 549"*, or anything asserting which
 law applies to a site. Naming a likely framework is context. Asserting legal
 conformance is the claim that cost accessiBe $1M.
+
+## `auditLogs` — the agent decision trail
+
+Returned alongside `audit` and `findings` on the API response. Each entry is
+one thing an agent did, and how it went.
+
+```json
+{
+  "logId": "log_aud_9d0ca3_007",
+  "timestamp": "2026-08-30T18:22:41Z",
+  "agentName": "VisualAuditor",
+  "level": "error",
+  "message": "Suspicious content in page - reported, not obeyed",
+  "details": "Text contains 'IGNORE ALL PREVIOUS INSTRUCTIONS...'",
+  "stage": "auditing"
+}
+```
+
+| Field | Notes |
+|---|---|
+| `logId` | `log_<auditId>_<NNN>`. Sequential, so order is recoverable from the id and a replay produces the same ids. |
+| `agentName` | One of the seven agents. |
+| `level` | `info`, `success`, `warn`, `error`. `success` is distinct from `info`: a verified fix and a routine step are both non-failures, but only one is an achievement. |
+| `message` | One line, safe to show as-is. |
+| `details` | Longer context. Null when there is none. |
+| `stage` | The audit status it happened during, for grouping. |
+
+**This is the same information as `notes`, in two forms.** `notes` stays
+human-readable prose for the report; `auditLogs` keeps agent, level and stage
+separate so the UI can filter and colour. Both are emitted from the same call
+site, so they cannot drift — the strings are never parsed back into structure.
+
+The trail is where refusals become visible: a patch declined because it
+introduced a new violation, a page passage flagged as an injection attempt and
+reported rather than obeyed, personal data removed before the model saw it.
+Those are the pipeline's most defensible moments and they are otherwise silent.
 
 ## Finding lifecycle — `status`
 
