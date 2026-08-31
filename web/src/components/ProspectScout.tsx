@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Loader2,
   Play,
+  Crosshair,
 } from 'lucide-react';
 
 export interface ScoutProspect {
@@ -47,6 +48,7 @@ export const ProspectScout: React.FC<ProspectScoutProps> = ({ onAudit, isAuditin
   const [prospects, setProspects] = useState<ScoutProspect[]>([]);
   const [queries, setQueries] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [pick, setPick] = useState<{ url: string; reason: string } | null>(null);
   const sourceRef = useRef<EventSource | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +62,7 @@ export const ProspectScout: React.FC<ProspectScoutProps> = ({ onAudit, isAuditin
     setProspects([]);
     setQueries([]);
     setError(null);
+    setPick(null);
     setPhase('searching');
 
     const es = new EventSource('/prospect/scout?count=8');
@@ -128,6 +131,31 @@ export const ProspectScout: React.FC<ProspectScoutProps> = ({ onAudit, isAuditin
 
   const checked = prospects.filter((p) => p.violations != null || p.skipped);
   const busy = phase === 'searching' || phase === 'scanning';
+
+  // Candidates the rule engine has actually seen fail. A proposal with no
+  // measured violations is not a target, and one still being checked is not
+  // yet a fact.
+  const auditable = prospects.filter((p) => typeof p.violations === 'number' && p.violations > 0);
+
+  /**
+   * Let the agent choose, rather than choosing for it.
+   *
+   * The criterion is `prospector.pick_target`'s: the candidate failing the
+   * most people. Deliberately not random — "the agent picked at random" is a
+   * weaker claim than "the agent scanned eight and chose the worst", and the
+   * reason is shown so the decision can be checked rather than taken on faith.
+   */
+  const choose = () => {
+    if (!auditable.length) return;
+    const best = auditable.reduce((a, b) => ((b.violations ?? 0) > (a.violations ?? 0) ? b : a));
+    setPick({
+      url: best.url,
+      reason:
+        `${best.organisation} — highest violation count of the ` +
+        `${checked.length} candidates checked (${best.violations} violations).`,
+    });
+    onAudit(best.url);
+  };
 
   if (!open) {
     return (
@@ -287,22 +315,53 @@ export const ProspectScout: React.FC<ProspectScoutProps> = ({ onAudit, isAuditin
         )}
       </div>
 
-      <div className="border-t border-line2 p-3 flex items-center justify-between gap-3">
-        <span className="font-mono text-[10.5px] text-bodyp">
-          {prospects.length > 0
-            ? `${checked.length}/${prospects.length} checked`
-            : busy
-              ? 'working…'
-              : 'idle'}
-        </span>
+      <div className="border-t border-line2 p-3 space-y-2.5">
+        {/* The decision, kept on screen. The panel does not close itself —
+            the audit is already running behind it, and the reasoning is the
+            part worth reading. */}
+        {pick && (
+          <p
+            className="border border-cyan p-2.5 text-[11.5px] text-bodyp"
+            style={{ background: 'color-mix(in srgb, var(--cyan) 10%, var(--bg))' }}
+            role="status"
+          >
+            <strong className="text-ccyan font-semibold">Agent 0 chose: </strong>
+            {pick.reason}
+          </p>
+        )}
+
         <button
           type="button"
-          onClick={scout}
-          disabled={busy}
-          className="px-3 py-1.5 border border-line2 text-[11px] font-semibold text-bodyp hover:text-head hover:bg-sunk transition-colors disabled:opacity-[0.45] disabled:cursor-not-allowed"
+          onClick={choose}
+          disabled={busy || !auditable.length || isAuditing}
+          title={
+            auditable.length
+              ? 'Audit the candidate failing the most people'
+              : 'No candidate has a measured violation count yet'
+          }
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-fill-blue hover:bg-fill-blue-h text-on-fill text-[12px] font-bold transition-colors disabled:opacity-[0.45] disabled:cursor-not-allowed disabled:hover:bg-fill-blue"
         >
-          {busy ? 'Scouting…' : 'Scout again'}
+          <Crosshair className="w-3.5 h-3.5" strokeWidth={1.5} />
+          Let the agent pick a target
         </button>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-mono text-[10.5px] text-bodyp">
+            {prospects.length > 0
+              ? `${checked.length}/${prospects.length} checked · ${auditable.length} auditable`
+              : busy
+                ? 'working…'
+                : 'idle'}
+          </span>
+          <button
+            type="button"
+            onClick={scout}
+            disabled={busy}
+            className="px-3 py-1.5 border border-line2 text-[11px] font-semibold text-bodyp hover:text-head hover:bg-sunk transition-colors disabled:opacity-[0.45] disabled:cursor-not-allowed"
+          >
+            {busy ? 'Scouting…' : 'Scout again'}
+          </button>
+        </div>
       </div>
     </aside>
   );
