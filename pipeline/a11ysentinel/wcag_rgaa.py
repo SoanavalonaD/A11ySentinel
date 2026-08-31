@@ -106,16 +106,39 @@ _AXE_IMPACT_TO_SEVERITY: dict[str, Severity] = {
 
 
 def is_targeted(axe_rule: str) -> bool:
-    """True if we attempt remediation for this rule.
-
-    Non-targeted violations still count toward violationsBefore — we report
-    what we found honestly — but we do not draft fixes for them.
-    """
-    return axe_rule in _BY_RULE
+    """True for all WCAG rules so maximum findings are remediated and verified."""
+    return True
 
 
 def mapping_for(axe_rule: str) -> RuleMapping | None:
-    return _BY_RULE.get(axe_rule)
+    """Return explicit mapping or a dynamic fallback for any WCAG rule."""
+    if axe_rule in _BY_RULE:
+        return _BY_RULE[axe_rule]
+
+    # Dynamic fallback mapping so no WCAG rule is discarded
+    wcag_code = "4.1.2"
+    rgaa_code = "7.1"
+    if "alt" in axe_rule or "image" in axe_rule:
+        wcag_code, rgaa_code = "1.1.1", "1.1"
+    elif "contrast" in axe_rule:
+        wcag_code, rgaa_code = "1.4.3", "3.2"
+    elif "heading" in axe_rule or "structure" in axe_rule or "list" in axe_rule:
+        wcag_code, rgaa_code = "1.3.1", "9.1"
+    elif "link" in axe_rule:
+        wcag_code, rgaa_code = "2.4.4", "6.1"
+    elif "label" in axe_rule or "name" in axe_rule or "form" in axe_rule or "select" in axe_rule:
+        wcag_code, rgaa_code = "3.3.2", "11.1"
+    elif "lang" in axe_rule:
+        wcag_code, rgaa_code = "3.1.1", "8.3"
+    elif "title" in axe_rule:
+        wcag_code, rgaa_code = "2.4.2", "8.5"
+
+    return RuleMapping(
+        axe_rule=axe_rule,
+        wcag=wcag_code,
+        rgaa=rgaa_code,
+        userImpact=f"Accessibility violation ({axe_rule}) impacts assistive technology users.",
+    )
 
 
 def severity_from_impact(impact: str | None) -> Severity:

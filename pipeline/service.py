@@ -110,7 +110,7 @@ class AuditRequest(BaseModel):
     # Stage 2. Off by default: it costs Vertex AI quota, and stage 1 is
     # useful on its own.
     remediate: bool = False
-    remediationLimit: int = 12
+    remediationLimit: int = 100
     modelTriage: bool = False
     visual: bool = False
     # Agent 8. Off by default: it costs quota, and an audit is useful without
@@ -307,7 +307,7 @@ class ProspectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     remediate: bool = True
-    remediationLimit: int = 12
+    remediationLimit: int = 100
     modelTriage: bool = True
     visual: bool = True
     # On by default here, unlike /audit. Prospecting exists to produce
