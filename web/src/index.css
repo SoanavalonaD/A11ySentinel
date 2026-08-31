@@ -366,14 +366,82 @@ mark.todo {
   }
 }
 
-/* Print: the report is a deliverable, so drop the furniture. */
+/* Print / Save as PDF: Only display the remediation report document, drop all app furniture. */
 @media print {
-  body {
-    background: #fff;
-    color: #000;
+  @page {
+    margin: 1.2cm 1.5cm;
+    size: portrait;
   }
 
+  /* Hide app navigation bar, header, and action buttons */
+  header,
+  nav,
   .print-hide {
     display: none !important;
+  }
+
+  body,
+  html {
+    background: #ffffff !important;
+    color: #073642 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Make article container fill the page cleanly without shadows or outer padding */
+  article {
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    page-break-inside: auto;
+  }
+
+  /* Ensure background cards and tables present crisp contrast on white paper */
+  .bg-bg,
+  .bg-panel,
+  .bg-sunk,
+  .code-surface {
+    background: #fdf6e3 !important;
+  }
+
+  .border,
+  .border-b,
+  .border-t,
+  .border-line,
+  .border-line2 {
+    border-color: #93a1a1 !important;
+  }
+
+  .text-head {
+    color: #073642 !important;
+  }
+
+  .text-body,
+  .text-bodyp {
+    color: #586e75 !important;
+  }
+
+  /* Ensure code diffs stay clear and readable in PDF export */
+  .diff-removed {
+    background-color: #fdf2f2 !important;
+    border-left: 3px solid #dc322f !important;
+    color: #b01f1c !important;
+  }
+
+  .diff-added {
+    background-color: #f4f9e6 !important;
+    border-left: 3px solid #859900 !important;
+    color: #4e5900 !important;
+  }
+
+  /* Avoid breaking headings and individual fix cards across page splits */
+  section,
+  .space-y-5 > div,
+  tr {
+    page-break-inside: avoid;
   }
 }

@@ -54,7 +54,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-panel border-b border-line2">
+    <header className="sticky top-0 z-50 bg-panel border-b border-line2 print-hide">
       <div className="max-w-[1280px] mx-auto px-6">
         {/* Row 1 — brand and actions. Wraps as whole items rather than overflowing. */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3 min-h-[66px] py-2">
