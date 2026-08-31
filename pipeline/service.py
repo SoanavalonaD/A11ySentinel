@@ -649,7 +649,14 @@ async def proxy_preview(
     # An absolute URL, because <base href> above now points at the audited
     # site: a root-relative "/" would send the reader to *their* homepage
     # rather than back to the dashboard.
-    dashboard_url = str(request.base_url)
+    #
+    # The scheme comes from X-Forwarded-Proto, not from request.base_url.
+    # Cloud Run terminates TLS at its frontend and forwards to the container
+    # over plain HTTP, so base_url reports http:// and the banner on an
+    # https:// page linked back insecurely. The proxy header is the only place
+    # the original scheme survives.
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    dashboard_url = f"{proto}://{request.url.netloc}/"
     highlight_note = (
         '<span style="color: #94a3b8;">• patched elements outlined in green</span>'
         if highlight and applied_count
