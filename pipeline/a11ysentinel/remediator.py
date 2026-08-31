@@ -37,7 +37,25 @@ VERTEX_LOCATION = os.getenv("VERTEX_LOCATION", "global")
 
 # Each in-flight request is a Chromium-free but quota-consuming call. Bounded
 # so a 79-finding page cannot open 79 simultaneous connections.
-DEFAULT_CONCURRENCY = int(os.getenv("REMEDIATOR_CONCURRENCY", "6"))
+# Six simultaneous calls is what produced the 429s. Three halves the burst
+# and costs wall-clock the run has to spare.
+DEFAULT_CONCURRENCY = int(os.getenv("REMEDIATOR_CONCURRENCY", "3"))
+
+# Three attempts at 2s, 4s. Enough for a quota window to reopen without
+# turning one stuck finding into a visibly stalled audit.
+RETRY_ATTEMPTS = int(os.getenv("REMEDIATOR_RETRY_ATTEMPTS", "3"))
+RETRY_BASE_SECONDS = float(os.getenv("REMEDIATOR_RETRY_BASE_SECONDS", "2"))
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    """Whether this failure is worth waiting out.
+
+    Matched on the text because the SDK raises ClientError for every 4xx and
+    the status is not exposed as a field. Deliberately narrow: retrying a bad
+    request would just spend the same quota three times.
+    """
+    text = str(exc)
+    return "429" in text or "RESOURCE_EXHAUSTED" in text
 
 # A minimal fix is a small edit. A response several times longer than the
 # original is the model rewriting the component, which is not what we asked
@@ -192,27 +210,44 @@ async def remediate_one(
         context=safe_context or None,
     )
 
-    try:
-        response = await client.aio.models.generate_content(
-            model=model,
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=prompts.REMEDIATOR_SYSTEM,
-                # Deterministic. A fix should not vary between runs, and the
-                # demo numbers must be reproducible.
-                temperature=0.0,
-                response_mime_type="application/json",
-                response_schema=prompts.REMEDIATOR_RESPONSE_SCHEMA,
-                max_output_tokens=2048,
-                # We pass no tools; disabling this silences an advisory
-                # warning and removes a code path we never want taken.
-                automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                    disable=True
-                ),
-            ),
-        )
-    except Exception as exc:  # noqa: BLE001
-        return PatchOutcome(finding, False, f"model call failed: {type(exc).__name__}: {exc}")
+    config = types.GenerateContentConfig(
+        system_instruction=prompts.REMEDIATOR_SYSTEM,
+        # Deterministic. A fix should not vary between runs, and the
+        # demo numbers must be reproducible.
+        temperature=0.0,
+        response_mime_type="application/json",
+        response_schema=prompts.REMEDIATOR_RESPONSE_SCHEMA,
+        max_output_tokens=2048,
+        # We pass no tools; disabling this silences an advisory
+        # warning and removes a code path we never want taken.
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+    )
+
+    # A 429 from Vertex means "too many requests per minute", not "too many
+    # requests" — its own guidance is to retry with backoff. Treating it like
+    # a malformed response, which is what a single attempt did, permanently
+    # lost a fix to a transient condition: a live run dropped two patches this
+    # way, and which two varied per run because it depends on what else is
+    # using the quota that minute.
+    #
+    # Retried here rather than around the whole fan-out so one slow finding
+    # does not restart the others.
+    response = None
+    last_error: str | None = None
+    for attempt in range(RETRY_ATTEMPTS):
+        try:
+            response = await client.aio.models.generate_content(
+                model=model, contents=user_prompt, config=config
+            )
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_error = f"{type(exc).__name__}: {exc}"
+            if not _is_rate_limited(exc) or attempt == RETRY_ATTEMPTS - 1:
+                return PatchOutcome(finding, False, f"model call failed: {last_error}")
+            await asyncio.sleep(RETRY_BASE_SECONDS * (2**attempt))
+
+    if response is None:
+        return PatchOutcome(finding, False, f"model call failed: {last_error}")
 
     raw = (response.text or "").strip()
     if not raw:
