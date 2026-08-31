@@ -5,6 +5,7 @@ export interface AuditRequestPayload {
   trigger?: 'manual' | 'prospect';
   visual?: boolean;
   remediate?: boolean;
+  remediationLimit?: number;
   modelTriage?: boolean;
   draftEmail?: boolean;
 }
@@ -72,7 +73,7 @@ export async function runAuditApi(payload: AuditRequestPayload): Promise<AuditRe
         url: payload.url,
         trigger: payload.trigger || 'manual',
         remediate: payload.remediate ?? true,
-        remediationLimit: 5,
+        remediationLimit: payload.remediationLimit ?? 100,
         modelTriage: payload.modelTriage ?? true,
         visual: payload.visual ?? true,
         draftEmail: payload.draftEmail ?? true,
