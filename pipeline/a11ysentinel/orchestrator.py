@@ -91,6 +91,7 @@ async def run_audit(
     model_triage: bool = False,
     visual: bool = False,
     draft_email: bool = False,
+    scout_note: str | None = None,
     on_status: Callable[[Audit], None] | None = None,
 ) -> AuditResult:
     """Single-page Stage 1 audit, end to end.
@@ -106,14 +107,22 @@ async def run_audit(
         createdAt=_now_iso(),
     )
     result = AuditResult(audit=audit, log=auditlog_mod.AuditLog(audit.auditId))
-    # Agent 0 — ProspectScout log entry
-    result.note(
-        "ProspectScout",
-        "info",
-        f"Target URL selection confirmed for {target_url}",
-        details=f"Trigger mode: {trigger.value}. Agent 0 ProspectScout initialised target.",
-        stage="prospecting",
-    )
+
+    # Agent 0, only when agent 0 actually chose something.
+    #
+    # `scout_note` carries the selection reason from the caller that ran the
+    # scout. Recording an entry on every audit would put "ProspectScout
+    # initialised target" against a URL a person typed by hand, which is a
+    # claim about work nothing did — the same failure the rest of this trail
+    # exists to avoid. A manual audit gets no entry, because there is none.
+    if scout_note:
+        result.note(
+            "ProspectScout",
+            "info",
+            f"Target chosen by agent: {target_url}",
+            details=scout_note,
+            stage="prospecting",
+        )
     # Captured inside the browser session so agent 8 can run after it closes.
     draft_inputs: tuple[str, str | None] | None = None
 
