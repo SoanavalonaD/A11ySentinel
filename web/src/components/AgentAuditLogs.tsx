@@ -10,6 +10,7 @@ interface AgentAuditLogsProps {
 
 const AGENTS = [
   'All',
+  'ProspectScout',
   'RootOrchestrator',
   'RuleAuditor',
   'VisualAuditor',

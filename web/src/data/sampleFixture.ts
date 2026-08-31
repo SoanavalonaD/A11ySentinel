@@ -138,8 +138,17 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
   },
   auditLogs: [
     {
+      logId: "log_000",
+      timestamp: "2026-08-29T17:00:00+03:00",
+      agentName: "ProspectScout",
+      level: "info",
+      message: "ProspectScout candidate pool evaluated. Target selected: https://example.com.",
+      details: "Agent 0 autonomous scan complete. Selected primary public target.",
+      stage: "prospecting"
+    },
+    {
       logId: "log_001",
-      timestamp: "2026-08-29T14:00:01Z",
+      timestamp: "2026-08-29T17:00:01+03:00",
       agentName: "RootOrchestrator",
       level: "info",
       message: "Session initialised. Starting 7-agent ADK pipeline for target https://example.com.",
@@ -147,7 +156,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_002",
-      timestamp: "2026-08-29T14:00:15Z",
+      timestamp: "2026-08-29T17:00:15+03:00",
       agentName: "RuleAuditor",
       level: "success",
       message: "axe-core 4.10.2 deterministic scan complete. 47 total violations found across 4 scanned pages.",
@@ -156,7 +165,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_003",
-      timestamp: "2026-08-29T14:00:45Z",
+      timestamp: "2026-08-29T17:00:45+03:00",
       agentName: "VisualAuditor",
       level: "warn",
       message: "Gemini 3.7 Flash multimodal inspection finished. Discarded 1 candidate visual finding due to unmatched DOM selector.",
@@ -165,7 +174,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_004",
-      timestamp: "2026-08-29T14:01:10Z",
+      timestamp: "2026-08-29T17:01:10+03:00",
       agentName: "TriageAgent",
       level: "info",
       message: "Triage agent scored 47 findings. Prioritised unlabelled form submit buttons as Rank 1 critical items.",
@@ -173,7 +182,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_005",
-      timestamp: "2026-08-29T14:01:40Z",
+      timestamp: "2026-08-29T17:01:40+03:00",
       agentName: "RemediationFanOut",
       level: "info",
       message: "Dispatched parallel remediation for 5 findings with bounded concurrency limit = 5.",
@@ -181,7 +190,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_006",
-      timestamp: "2026-08-29T14:02:15Z",
+      timestamp: "2026-08-29T17:02:15+03:00",
       agentName: "Remediator",
       level: "info",
       message: "Generated candidate patch for `img.hero-banner`. Set requiresHumanInput = true with author guidance.",
@@ -190,7 +199,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_007",
-      timestamp: "2026-08-29T14:02:50Z",
+      timestamp: "2026-08-29T17:02:50+03:00",
       agentName: "Verifier",
       level: "success",
       message: "Verified patch for finding f_001 (`form#contact > button.btn-primary`). axe-core re-run: 0 regressions.",
@@ -199,7 +208,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_008",
-      timestamp: "2026-08-29T14:03:05Z",
+      timestamp: "2026-08-29T17:03:05+03:00",
       agentName: "Verifier",
       level: "error",
       message: "Write Gate Rejection: Candidate patch f_009 failed verification due to secondary contrast regression.",
@@ -208,7 +217,7 @@ export const SAMPLE_FIXTURE: AuditResultResponse = {
     },
     {
       logId: "log_009",
-      timestamp: "2026-08-29T14:03:12Z",
+      timestamp: "2026-08-29T17:03:12+03:00",
       agentName: "RootOrchestrator",
       level: "success",
       message: "Pipeline completed successfully. 4 verified patches written to Firestore. Status updated to complete.",

@@ -67,6 +67,7 @@ export interface Finding {
 }
 
 export type AgentName = 
+  | 'ProspectScout'
   | 'RootOrchestrator' 
   | 'RuleAuditor' 
   | 'VisualAuditor' 

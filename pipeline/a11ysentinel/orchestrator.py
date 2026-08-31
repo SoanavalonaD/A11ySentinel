@@ -106,6 +106,14 @@ async def run_audit(
         createdAt=_now_iso(),
     )
     result = AuditResult(audit=audit, log=auditlog_mod.AuditLog(audit.auditId))
+    # Agent 0 — ProspectScout log entry
+    result.note(
+        "ProspectScout",
+        "info",
+        f"Target URL selection confirmed for {target_url}",
+        details=f"Trigger mode: {trigger.value}. Agent 0 ProspectScout initialised target.",
+        stage="prospecting",
+    )
     # Captured inside the browser session so agent 8 can run after it closes.
     draft_inputs: tuple[str, str | None] | None = None
 
