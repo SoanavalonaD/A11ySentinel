@@ -545,6 +545,18 @@ async def proxy_preview(audit_id: str) -> HTMLResponse:
     # Review Item 5: Security Defense - Strip scripts and inline handlers
     cleaned_html = _strip_scripts_and_events(raw_html)
 
+    # Inject <base href="..."> into <head> to preserve site CSS, fonts, and relative assets
+    base_tag = f'<base href="{target_url}">'
+    if "<head>" in cleaned_html:
+        cleaned_html = cleaned_html.replace("<head>", f"<head>\n  {base_tag}", 1)
+    elif "<head " in cleaned_html:
+        head_idx = cleaned_html.find("<head ")
+        close_idx = cleaned_html.find(">", head_idx)
+        if close_idx != -1:
+            cleaned_html = cleaned_html[: close_idx + 1] + f"\n  {base_tag}" + cleaned_html[close_idx + 1 :]
+    else:
+        cleaned_html = f"<head>{base_tag}</head>\n" + cleaned_html
+
     # Review Item 1: Apply patches with Playwright _APPLY_JS in browser context
     applied_count = 0
     patched_html = cleaned_html

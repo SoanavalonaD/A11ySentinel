@@ -55,6 +55,12 @@ export async function renderPatchedProxyPage(options: ProxyRenderOptions): Promi
   // Parse HTML DOM
   const root = parse(rawHtml);
 
+  // Inject <base href="..."> into <head> to preserve target site CSS, fonts, and relative assets
+  const headElement = root.querySelector('head');
+  if (headElement && !root.querySelector('base')) {
+    headElement.insertAdjacentHTML('afterbegin', `<base href="${targetUrl}">`);
+  }
+
   // STRICT RULE 1: Filter ONLY verified findings with valid patchedCode
   const verifiedFindings = findings.filter(
     (f) => f.status === 'verified' && f.patchedCode !== null
