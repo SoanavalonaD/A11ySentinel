@@ -137,7 +137,12 @@ def mapping_for(axe_rule: str) -> RuleMapping | None:
         axe_rule=axe_rule,
         wcag=wcag_code,
         rgaa=rgaa_code,
-        userImpact=f"Accessibility violation ({axe_rule}) impacts assistive technology users.",
+        # The field is user_impact. `userImpact` raised TypeError on every
+        # rule outside the ten explicit mappings, which killed the whole audit
+        # at rule_auditor.py:132 — 80 violations found, none delivered.
+        user_impact=(
+            f"Accessibility violation ({axe_rule}) impacts assistive technology users."
+        ),
     )
 
 
