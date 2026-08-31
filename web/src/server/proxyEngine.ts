@@ -19,10 +19,10 @@ export async function renderPatchedProxyPage(options: ProxyRenderOptions): Promi
   if (options.auditId) {
     if (options.auditId === SAMPLE_FIXTURE.audit.auditId || options.auditId.includes('7f3c91')) {
       targetUrl = targetUrl || SAMPLE_FIXTURE.audit.targetUrl;
-      findings = SAMPLE_FIXTURE.findings;
+      if (findings.length === 0) findings = SAMPLE_FIXTURE.findings;
     } else if (options.auditId === DEMO_SITE_FIXTURE.audit.auditId || options.auditId.includes('antsahabe')) {
       targetUrl = targetUrl || DEMO_SITE_FIXTURE.audit.targetUrl;
-      findings = DEMO_SITE_FIXTURE.findings;
+      if (findings.length === 0) findings = DEMO_SITE_FIXTURE.findings;
     }
   }
 
