@@ -151,7 +151,7 @@ async def readyz() -> dict[str, Any]:
     checks: dict[str, Any] = {"axe_vendored": AXE_PATH.exists()}
 
     try:
-        
+        from playwright.async_api import async_playwright
 
         pw = await async_playwright().start()
         browser = await pw.chromium.launch(
@@ -230,7 +230,7 @@ async def _run_and_persist(
             result.audit.auditId, entry.level, entry.agentName, entry.message,
         )
 
-    if PERSIST:from playwright.async_api import async_playwright
+    if PERSIST:
         try:
             report = store.persist(result.audit, result.findings)
             payload["write"] = {
