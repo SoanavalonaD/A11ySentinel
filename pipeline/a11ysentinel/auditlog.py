@@ -18,11 +18,8 @@ a contract, so it is written down rather than inferred.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Literal
-
-# Madagascar Timezone (UTC+3 / Indian/Antananarivo)
-MADAGASCAR_TZ = timezone(timedelta(hours=3))
 
 # Mirrors AgentName in the web schema. ProspectScout is agent 0 — it runs
 # before the pipeline, producing the target the rest of them need.
@@ -89,7 +86,15 @@ class AuditLog:
             # the id alone, and two runs of the same audit produce the same
             # ids — which matters when comparing a replay against a report.
             logId=f"log_{self.audit_id}_{len(self.entries) + 1:03d}",
-            timestamp=datetime.now(MADAGASCAR_TZ).strftime("%Y-%m-%dT%H:%M:%S+03:00"),
+            # UTC with a Z suffix — contract invariant 6, and the same clock
+            # the audit document's own createdAt/completedAt use. Stamping
+            # these in a local offset put one audit on two clocks, so a log
+            # line appeared to precede the run that produced it.
+            #
+            # Which timezone a person wants to *read* is a display choice, and
+            # it belongs to the dashboard: see the selector in
+            # AgentAuditLogs.tsx, which defaults to the viewer's own zone.
+            timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             agentName=agent,
             level=level,
             message=message,

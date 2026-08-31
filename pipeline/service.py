@@ -179,6 +179,7 @@ async def _run_and_persist(
     triage: bool = False,
     visual: bool = False,
     draft_email: bool = False,
+    scout_note: str | None = None,
 ) -> dict[str, Any]:
     # Write each stage transition as it happens, so a dashboard polling the
     # audit document sees live progress. The audit spends most of its time in
@@ -204,6 +205,7 @@ async def _run_and_persist(
         model_triage=triage,
         visual=visual,
         draft_email=draft_email,
+        scout_note=scout_note,
         on_status=record_progress,
     )
     # Item 3: Set proxyUrl on audit model BEFORE to_contract_json and store.persist()
@@ -349,6 +351,9 @@ async def prospect(request: ProspectRequest) -> dict[str, Any]:
         triage=request.modelTriage,
         visual=request.visual,
         draft_email=request.draftEmail,
+        # The decision agent 0 actually made, carried into the audit's own
+        # trail so the choice can be read next to its consequences.
+        scout_note=selection.reason,
     )
     payload["selection"] = {
         "chosen": selection.chosen,
@@ -447,6 +452,42 @@ async def prospect_scout(
     )
 
 
+# Tag a patched element. Kept separate from verifier._APPLY_JS so the
+# verification path stays exactly as it was — the verifier must not start
+# writing attributes into the DOM it is measuring.
+_MARK_JS = """([selector]) => {
+    let el;
+    try { el = document.querySelector(selector); } catch (e) { return false; }
+    if (!el || !el.setAttribute) return false;
+    el.setAttribute("data-a11ysentinel-patched", "1");
+    return true;
+}"""
+
+# The outline, injected as a <style> the target page cannot lose. `!important`
+# because we are decorating someone else's stylesheet and theirs may be more
+# specific than anything we can write.
+#
+# outline rather than border: a border changes layout, and the point of this
+# preview is that the fixes do not.
+_HIGHLIGHT_CSS_JS = """() => {
+    const css = `
+      [data-a11ysentinel-patched] {
+        outline: 3px solid #10b981 !important;
+        outline-offset: 2px !important;
+        background-color: rgba(16, 185, 129, 0.10) !important;
+      }
+      [data-a11ysentinel-patched]:hover {
+        outline-color: #059669 !important;
+      }
+    `;
+    const style = document.createElement("style");
+    style.setAttribute("data-a11ysentinel", "highlight");
+    style.textContent = css;
+    (document.head || document.documentElement).appendChild(style);
+    return true;
+}"""
+
+
 def _strip_scripts_and_events(raw_html: str) -> str:
     """Security defense: strip <script> tags, inline on* handlers, and javascript: links."""
     if not raw_html:
@@ -461,7 +502,9 @@ def _strip_scripts_and_events(raw_html: str) -> str:
 
 
 @app.get("/proxy/{audit_id}", response_class=HTMLResponse)
-async def proxy_preview(audit_id: str) -> HTMLResponse:
+async def proxy_preview(
+    audit_id: str, request: Request, highlight: int = 1
+) -> HTMLResponse:
     """Live proxy preview using Playwright _APPLY_JS.
 
     Reads audit from Firestore, applies verified patches using real document.querySelector
@@ -567,12 +610,31 @@ async def proxy_preview(audit_id: str) -> HTMLResponse:
             page = await context.new_page()
             await page.set_content(cleaned_html, wait_until="domcontentloaded")
 
+            marks: list[str] = []
             for selector, patched_code in verified_patches:
                 outcome = await page.evaluate(_APPLY_JS, [selector, patched_code])
-                if outcome in _APPLIED_OK:
-                    applied_count += 1
-                else:
+                if outcome not in _APPLIED_OK:
                     log.info("proxy %s: %s -> %s", audit_id, selector, outcome)
+                    continue
+
+                applied_count += 1
+                # `attributes` means _APPLY_JS patched <html>, <head> or <body>
+                # in place. Outlining the whole document is noise, so those
+                # count but are not marked.
+                if outcome != "attributes":
+                    marks.append(selector)
+
+            # Marked after every patch has landed, not as each one lands.
+            # Patches can nest: replacing an <a> also replaces an <img> inside
+            # it, and an outerHTML swap takes any marker on the old subtree
+            # with it. Marking during the loop lost one highlight per nested
+            # pair while the patch itself applied fine — a highlight that
+            # undercounts is worse than none, because it reads as "this change
+            # did not happen".
+            if highlight:
+                for selector in marks:
+                    await page.evaluate(_MARK_JS, [selector])
+                await page.evaluate(_HIGHLIGHT_CSS_JS)
 
             patched_html = await page.content()
             await context.close()
@@ -583,6 +645,17 @@ async def proxy_preview(audit_id: str) -> HTMLResponse:
     patched_html = _strip_scripts_and_events(patched_html)
 
     # 5. Inject Preview Banner into <body>
+    #
+    # An absolute URL, because <base href> above now points at the audited
+    # site: a root-relative "/" would send the reader to *their* homepage
+    # rather than back to the dashboard.
+    dashboard_url = str(request.base_url)
+    highlight_note = (
+        '<span style="color: #94a3b8;">• patched elements outlined in green</span>'
+        if highlight and applied_count
+        else ""
+    )
+
     banner_html = f"""
     <div id="a11ysentinel-proxy-banner" style="
       position: sticky; top: 0; left: 0; right: 0; z-index: 999999;
@@ -594,8 +667,9 @@ async def proxy_preview(audit_id: str) -> HTMLResponse:
         <span style="background: #10b981; color: #064e3b; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px;">LIVE PROXY PREVIEW</span>
         <span style="font-weight: 600;">A11ySentinel Corrected Preview</span>
         <span style="color: #34d399;">• {applied_count} of {len(verified_patches)} verified patch(es) applied live</span>
+        {highlight_note}
       </div>
-      <a href="/" style="background: #334155; color: white; text-decoration: none; padding: 5px 12px; border-radius: 6px; font-weight: 600; font-size: 11px;">&larr; Back to Dashboard</a>
+      <a href="{dashboard_url}" style="background: #334155; color: white; text-decoration: none; padding: 5px 12px; border-radius: 6px; font-weight: 600; font-size: 11px;">&larr; Back to Dashboard</a>
     </div>
     """
 

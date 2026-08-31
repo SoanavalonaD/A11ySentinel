@@ -1,11 +1,44 @@
 import React, { useState } from 'react';
 import { AgentAuditLogEntry, AgentName, LogLevel, AuditWriteReport } from '../types/schema';
-import { Terminal, Search, Copy, Check, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Terminal, Search, Copy, Check, AlertTriangle, ShieldAlert, Globe } from 'lucide-react';
 
 interface AgentAuditLogsProps {
   auditLogs?: AgentAuditLogEntry[];
   notes?: string[];
   write?: AuditWriteReport;
+}
+
+/**
+ * How to read the timestamps. The pipeline stores UTC with a Z suffix and
+ * always will — invariant 6, and the audit document uses the same clock. This
+ * is purely display, so the reader picks.
+ *
+ * Defaults to the viewer's own zone, which is the answer that needs no
+ * explaining wherever they happen to be.
+ */
+const ZONES: { id: string; label: string }[] = [
+  { id: 'local', label: 'Local time' },
+  { id: 'UTC', label: 'UTC' },
+  { id: 'Indian/Antananarivo', label: 'Antananarivo (UTC+3)' },
+  { id: 'Europe/Paris', label: 'Paris' },
+  { id: 'America/New_York', label: 'New York' },
+];
+
+const ZONE_KEY = 'a11ysentinel-log-timezone';
+
+/** HH:MM:SS in the chosen zone, from a stored UTC instant. */
+function formatTime(iso: string, zone: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(11, 19);
+  try {
+    return d.toLocaleTimeString('en-GB', {
+      hour12: false,
+      timeZone: zone === 'local' ? undefined : zone,
+    });
+  } catch {
+    // An unknown zone id should not cost the reader the timestamp.
+    return d.toLocaleTimeString('en-GB', { hour12: false });
+  }
 }
 
 const AGENTS = [
@@ -38,6 +71,13 @@ export const AgentAuditLogs: React.FC<AgentAuditLogsProps> = ({
   const [selectedLevel, setSelectedLevel] = useState<LogLevel | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
+  const [zone, setZone] = useState<string>(() => {
+    try {
+      return window.localStorage.getItem(ZONE_KEY) || 'local';
+    } catch {
+      return 'local';
+    }
+  });
 
   const filteredLogs = auditLogs.filter((log) => {
     if (selectedAgent !== 'All' && log.agentName !== selectedAgent) return false;
@@ -68,6 +108,20 @@ export const AgentAuditLogs: React.FC<AgentAuditLogsProps> = ({
   };
 
   const rejections = write?.findingsRejected ?? [];
+
+  const pickZone = (next: string) => {
+    setZone(next);
+    try {
+      window.localStorage.setItem(ZONE_KEY, next);
+    } catch {
+      // A remembered preference is a convenience, not a requirement.
+    }
+  };
+
+  const zoneLabel =
+    zone === 'local'
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'local'
+      : zone;
 
   return (
     <section className="panel card-shadow" aria-label="Agent audit logs">
@@ -144,6 +198,26 @@ export const AgentAuditLogs: React.FC<AgentAuditLogsProps> = ({
             />
           </div>
 
+          <label htmlFor="log-timezone" className="sr-only">
+            Timestamp timezone
+          </label>
+          <div className="flex items-center gap-1.5">
+            <Globe className="w-3.5 h-3.5 text-bodyp shrink-0" strokeWidth={1.5} />
+            <select
+              id="log-timezone"
+              value={zone}
+              onChange={(e) => pickZone(e.target.value)}
+              title={`Timestamps are stored in UTC and shown in ${zoneLabel}`}
+              className="bg-bg border border-line2 px-2.5 py-1.5 text-[12px] text-head"
+            >
+              {ZONES.map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <label htmlFor="log-level" className="sr-only">
             Filter by log level
           </label>
@@ -177,8 +251,11 @@ export const AgentAuditLogs: React.FC<AgentAuditLogsProps> = ({
                   key={log.logId}
                   className="grid grid-cols-1 md:grid-cols-[74px_150px_86px_1fr] gap-x-3 gap-y-1.5 px-4 py-2.5 items-start"
                 >
-                  <span className="font-mono text-[11px] text-bodyp whitespace-nowrap">
-                    {log.timestamp.slice(11, 19)}
+                  <span
+                    className="font-mono text-[11px] text-bodyp whitespace-nowrap"
+                    title={`${log.timestamp} (stored UTC)`}
+                  >
+                    {formatTime(log.timestamp, zone)}
                   </span>
 
                   <span className="font-mono text-[11px] font-bold text-head border border-line2 px-1.5 py-0.5 justify-self-start truncate max-w-full">
