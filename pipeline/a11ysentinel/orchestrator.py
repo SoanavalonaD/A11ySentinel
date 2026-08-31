@@ -446,8 +446,17 @@ async def run_audit(
         advance(AuditStatus.COMPLETE)
 
     except Exception as exc:
+        import traceback
+        tb_str = traceback.format_exc()
         audit.completedAt = _now_iso()
         audit.error = f"{type(exc).__name__}: {exc}"
+        result.note(
+            "RootOrchestrator",
+            "error",
+            f"Audit failed: {type(exc).__name__}: {exc}",
+            details=tb_str,
+            stage="failed",
+        )
         advance(AuditStatus.FAILED)
 
     return result
