@@ -37,6 +37,7 @@ from a11ysentinel import prospector, scout, store
 from a11ysentinel.models import Trigger
 from a11ysentinel.orchestrator import run_audit
 from a11ysentinel.rule_auditor import AXE_PATH
+from a11ysentinel.verifier import _APPLIED_OK, _APPLY_JS
 
 app = FastAPI(
     title="A11ySentinel pipeline",
@@ -150,7 +151,7 @@ async def readyz() -> dict[str, Any]:
     checks: dict[str, Any] = {"axe_vendored": AXE_PATH.exists()}
 
     try:
-        from playwright.async_api import async_playwright
+        
 
         pw = await async_playwright().start()
         browser = await pw.chromium.launch(
@@ -205,9 +206,9 @@ async def _run_and_persist(
         draft_email=draft_email,
         on_status=record_progress,
     )
+    # Item 3: Set proxyUrl on audit model BEFORE to_contract_json and store.persist()
+    result.audit.proxyUrl = f"/proxy/{result.audit.auditId}"
     payload = result.to_contract_json()
-    if payload.get("audit"):
-        payload["audit"]["proxyUrl"] = f"/proxy/{result.audit.auditId}"
 
     # Every reason a candidate was dropped, returned and logged.
     # The modules collect these precisely so they are not silence, and
@@ -229,7 +230,7 @@ async def _run_and_persist(
             result.audit.auditId, entry.level, entry.agentName, entry.message,
         )
 
-    if PERSIST:
+    if PERSIST:from playwright.async_api import async_playwright
         try:
             report = store.persist(result.audit, result.findings)
             payload["write"] = {
@@ -446,11 +447,29 @@ async def prospect_scout(
     )
 
 
+def _strip_scripts_and_events(raw_html: str) -> str:
+    """Security defense: strip <script> tags, inline on* handlers, and javascript: links."""
+    if not raw_html:
+        return ""
+    # Strip <script>...</script>
+    cleaned = re.sub(r"<script\b[^>]*>.*?</script>", "", raw_html, flags=re.DOTALL | re.IGNORECASE)
+    # Strip inline event attributes like onclick="...", onload='...'
+    cleaned = re.sub(r"\son[a-z]+\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", "", cleaned, flags=re.IGNORECASE)
+    # Strip javascript: URIs
+    cleaned = re.sub(r'(href|src)\s*=\s*["\']javascript:[^"\']*["\']', r'\1="#"', cleaned, flags=re.IGNORECASE)
+    return cleaned
+
+
 @app.get("/proxy/{audit_id}", response_class=HTMLResponse)
 async def proxy_preview(audit_id: str) -> HTMLResponse:
-    """Live proxy preview. Fetches target HTML, applies verified patches by selector, and returns modified HTML with banner."""
+    """Live proxy preview using Playwright _APPLY_JS.
+
+    Reads audit from Firestore, applies verified patches using real document.querySelector
+    in Playwright context, and returns modified HTML with preview banner.
+    """
     target_url: str | None = None
     verified_patches: list[tuple[str, str]] = []
+    found_audit = False
 
     # 1. Read audit & findings from Firestore if available
     if PERSIST:
@@ -458,59 +477,98 @@ async def proxy_preview(audit_id: str) -> HTMLResponse:
             client = store.get_client()
             audit_ref = client.collection("audits").document(audit_id).get()
             if audit_ref.exists:
+                found_audit = True
                 audit_data = audit_ref.to_dict() or {}
                 target_url = audit_data.get("targetUrl")
-                
-                findings_stream = client.collection("audits").document(audit_id).collection("findings").stream()
+
+                findings_stream = (
+                    client.collection("audits")
+                    .document(audit_id)
+                    .collection("findings")
+                    .stream()
+                )
                 for doc in findings_stream:
                     fdata = doc.to_dict() or {}
-                    if fdata.get("status") == "verified" and fdata.get("patchedCode") and fdata.get("selector"):
-                        verified_patches.append((fdata.get("selector"), fdata.get("patchedCode")))
+                    if (
+                        fdata.get("status") == "verified"
+                        and fdata.get("patchedCode")
+                        and fdata.get("selector")
+                    ):
+                        verified_patches.append(
+                            (fdata.get("selector"), fdata.get("patchedCode"))
+                        )
         except Exception as exc:  # noqa: BLE001
             log.warning("Proxy could not fetch audit %s from Firestore: %s", audit_id, exc)
 
-    # 2. Sample fixture fallbacks
-    if not target_url:
+    # 2. Sample fixture fallbacks for demo audit IDs
+    if not found_audit:
         if "7f3c91" in audit_id:
+            found_audit = True
             target_url = "https://demo-target.a11ysentinel.dev/contact"
             verified_patches = [
-                ("form#contact > button.btn-primary", '<button class="btn-primary" type="submit" aria-label="Send message"><i class="icon-send" aria-hidden="true"></i></button>')
+                (
+                    "form#contact > button.btn-primary",
+                    '<button class="btn-primary" type="submit" aria-label="Send message"><i class="icon-send" aria-hidden="true"></i></button>',
+                )
             ]
         elif "antsahabe" in audit_id:
+            found_audit = True
             target_url = "https://a11ysentinel-pipeline-708226575684.us-central1.run.app/demo/index.html"
             verified_patches = [
-                ("form#contact > button.btn-primary", '<button class="btn-primary" type="submit" aria-label="Send message"><i class="icon-send" aria-hidden="true"></i></button>')
-            ]
-        else:
-            target_url = "https://a11ysentinel-pipeline-708226575684.us-central1.run.app/demo/index.html"
-            verified_patches = [
-                ("form#contact > button.btn-primary", '<button class="btn-primary" type="submit" aria-label="Send message"><i class="icon-send" aria-hidden="true"></i></button>')
+                (
+                    "form#contact > button.btn-primary",
+                    '<button class="btn-primary" type="submit" aria-label="Send message"><i class="icon-send" aria-hidden="true"></i></button>',
+                )
             ]
 
-    # 3. Fetch target HTML
+    # Review Item 2: Return 404 for unknown audit IDs
+    if not found_audit or not target_url:
+        raise HTTPException(status_code=404, detail=f"No audit found for id {audit_id}")
+
+    # 3. Fetch raw target HTML using httpx
     raw_html = ""
     try:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            resp = await client.get(target_url, headers={"User-Agent": "A11ySentinel-Proxy/1.0"})
+            resp = await client.get(
+                target_url, headers={"User-Agent": "A11ySentinel-Proxy/1.0"}
+            )
             if resp.status_code == 200:
                 raw_html = resp.text
     except Exception as exc:  # noqa: BLE001
         log.warning("Proxy target fetch failed for %s: %s", target_url, exc)
 
     if not raw_html:
-        raw_html = (
-            "<!DOCTYPE html><html><head><title>A11ySentinel Proxy</title></head>"
-            "<body><main><h1>A11ySentinel Live Proxy Preview</h1>"
-            f"<form id='contact'><button class='btn-primary' type='submit'>Send</button></form></main></body></html>"
+        raise HTTPException(
+            status_code=502, detail=f"Could not fetch target page at {target_url}"
         )
 
-    # 4. Apply verified patches by replacing target element
-    patched_html = raw_html
-    for selector, patched_code in verified_patches:
-        if "button.btn-primary" in selector or "button" in selector:
-            button_pattern = r'<button[^>]*class="[^"]*btn-primary[^"]*"[^>]*>.*?</button>'
-            if re.search(button_pattern, patched_html, flags=re.DOTALL):
-                patched_html = re.sub(button_pattern, patched_code, patched_html, count=1, flags=re.DOTALL)
+    # Review Item 5: Security Defense - Strip scripts and inline handlers
+    cleaned_html = _strip_scripts_and_events(raw_html)
+
+    # Review Item 1: Apply patches with Playwright _APPLY_JS in browser context
+    applied_count = 0
+    patched_html = cleaned_html
+
+    try:
+        async with capture_mod.BrowserSession() as browser:
+            context = await browser.new_context(viewport=capture_mod.VIEWPORT)
+            page = await context.new_page()
+            await page.set_content(cleaned_html, wait_until="domcontentloaded")
+
+            for selector, patched_code in verified_patches:
+                outcome = await page.evaluate(_APPLY_JS, [selector, patched_code])
+                if outcome in _APPLIED_OK:
+                    applied_count += 1
+                else:
+                    log.info("proxy %s: %s -> %s", audit_id, selector, outcome)
+
+            patched_html = await page.content()
+            await context.close()
+    except Exception as exc:  # noqa: BLE001
+        log.error("Proxy Playwright execution error for %s: %s", audit_id, exc)
+
+    # Re-apply script stripping to result of page.content()
+    patched_html = _strip_scripts_and_events(patched_html)
 
     # 5. Inject Preview Banner into <body>
     banner_html = f"""
@@ -523,7 +581,7 @@ async def proxy_preview(audit_id: str) -> HTMLResponse:
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="background: #10b981; color: #064e3b; font-weight: 800; font-size: 10px; padding: 2px 6px; border-radius: 4px;">LIVE PROXY PREVIEW</span>
         <span style="font-weight: 600;">A11ySentinel Corrected Preview</span>
-        <span style="color: #34d399;">• {len(verified_patches)} verified patch(es) applied live</span>
+        <span style="color: #34d399;">• {applied_count} of {len(verified_patches)} verified patch(es) applied live</span>
       </div>
       <a href="/" style="background: #334155; color: white; text-decoration: none; padding: 5px 12px; border-radius: 6px; font-weight: 600; font-size: 11px;">&larr; Back to Dashboard</a>
     </div>
@@ -535,7 +593,11 @@ async def proxy_preview(audit_id: str) -> HTMLResponse:
         body_idx = patched_html.find("<body")
         close_idx = patched_html.find(">", body_idx)
         if close_idx != -1:
-            patched_html = patched_html[:close_idx+1] + f"\n{banner_html}" + patched_html[close_idx+1:]
+            patched_html = (
+                patched_html[: close_idx + 1]
+                + f"\n{banner_html}"
+                + patched_html[close_idx + 1 :]
+            )
         else:
             patched_html = banner_html + patched_html
     else:

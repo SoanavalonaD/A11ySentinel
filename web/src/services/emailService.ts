@@ -80,6 +80,12 @@ export function buildAuditEmailContent(
   const after = audit.violationsAfter !== null ? audit.violationsAfter : before;
   const verifiedFixesCount = findings.filter((f) => f.status === 'verified').length;
   const humanActionCount = findings.filter((f) => f.requiresHumanInput).length;
+  const BASE_URL = 'https://a11ysentinel-pipeline-708226575684.us-central1.run.app';
+  const absoluteProxyUrl = audit.proxyUrl
+    ? audit.proxyUrl.startsWith('http')
+      ? audit.proxyUrl
+      : `${BASE_URL}${audit.proxyUrl}`
+    : null;
 
   const bodyText = `
 Hello,
@@ -95,7 +101,7 @@ Audit Summary:
 - Items Requiring Human Review: ${humanActionCount}
 
 Live Corrected Proxy Preview:
-${audit.proxyUrl || 'Available on A11ySentinel Dashboard'}
+${absoluteProxyUrl || 'Available on A11ySentinel Dashboard'}
 ${closing ? `
 ${closing}
 ` : ''}
@@ -103,7 +109,7 @@ About A11ySentinel:
 A11ySentinel finds, prioritises, drafts, and verifies accessibility fixes under human review. It generates source-level code diffs to merge into your codebase. It is not a client-side runtime overlay script and does not claim automatic 100% legal compliance.
 
 ----------------------------------------------------------------------
-Opt-out notice: If you prefer not to receive accessibility audit reports for ${domain}, please click here to opt out: https://a11ysentinel-pipeline-708226575684.us-central1.run.app/opt-out?domain=${encodeURIComponent(domain)}
+Opt-out notice: If you prefer not to receive accessibility audit reports for ${domain}, please click here to opt out: ${BASE_URL}/opt-out?domain=${encodeURIComponent(domain)}
 ----------------------------------------------------------------------
 `.trim();
 
@@ -138,9 +144,9 @@ Opt-out notice: If you prefer not to receive accessibility audit reports for ${d
           </table>
         </div>
 
-        ${audit.proxyUrl ? `
+        ${absoluteProxyUrl ? `
         <div style="text-align: center; margin: 24px 0;">
-          <a href="${audit.proxyUrl}" style="background: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">Preview Corrected Site (Live Proxy) &rarr;</a>
+          <a href="${absoluteProxyUrl}" style="background: #10b981; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 700; font-size: 14px; display: inline-block;">Preview Corrected Site (Live Proxy) &rarr;</a>
         </div>
         ` : ''}
 

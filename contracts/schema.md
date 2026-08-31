@@ -62,7 +62,7 @@ audits/{auditId}/findings/{findingId}   <- subcollection, one doc per finding
 | `pageCount` | int | pipeline | Pages actually audited, not discovered. |
 | `violationsBefore` | int | pipeline | Total axe violations across all pages, pre-fix. |
 | `violationsAfter` | int or null | pipeline | Post-patch re-run. **Null until verification completes** — render as "pending", not as 0. |
-| `proxyUrl` | string or null | **web** | Web layer writes this once the proxy can serve the audit. |
+| `proxyUrl` | string or null | **pipeline** | Pipeline writes `/proxy/{auditId}` upon audit completion once the proxy can serve the audit. |
 | `emailStatus` | enum | **web** | `draft`, `approved`, `sent`. Never leaves `draft` without a human click. **`approved` means a human signed off and nothing was dispatched** — it is the resting state while no mail transport is configured. `sent` is written only when a transport confirms delivery, so it is never a guess. |
 | `error` | string or null | pipeline | Human-readable reason when `status = failed`. |
 
